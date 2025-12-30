@@ -24,6 +24,8 @@
         padding: 28px;
         box-shadow: 0 20px 50px rgba(0,0,0,.45);
         margin: 20px 0;
+        position: relative; /* For absolute positioning if needed */
+        border: 1px solid #1f3a4d; /* Subtle border for tech feel */
     }
 
     h2 {
@@ -31,13 +33,16 @@
         margin-bottom: 8px;
         font-weight: 600;
         text-align: center;
+        letter-spacing: 0.5px;
+        color: #e0e0e0;
     }
 
     p {
         font-size: 14px;
-        opacity: 0.85;
+        opacity: 0.7;
         text-align: center;
-        margin-bottom: 20px;
+        margin-bottom: 25px;
+        color: #8daac2;
     }
 
     input[type="file"] {
@@ -49,61 +54,134 @@
         color: #fff;
         cursor: pointer;
         box-sizing: border-box;
-        margin-bottom: 10px;
+        margin-bottom: 15px;
+        transition: border-color 0.3s;
+    }
+    
+    input[type="file"]:hover {
+        border-color: #7abaff;
+        background: #091e2b;
     }
 
     button {
-        margin-top: 10px;
         width: 100%;
-        padding: 12px;
-        background: #4fa3ff;
+        padding: 14px;
+        background: linear-gradient(135deg, #4fa3ff, #2980b9);
         border: none;
         border-radius: 8px;
-        color: #000;
-        font-weight: bold;
+        color: #fff;
+        font-weight: 600;
         font-size: 15px;
         cursor: pointer;
-        transition: background 0.3s;
+        transition: transform 0.2s, box-shadow 0.2s;
+        box-shadow: 0 4px 15px rgba(79, 163, 255, 0.3);
     }
 
     button:hover {
-        background: #7abaff;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(79, 163, 255, 0.4);
     }
 
     button:disabled {
-        background: #6b6b6b;
+        background: #374752;
+        color: #7c8c99;
         cursor: not-allowed;
-        color: #d1d1d1;
+        transform: none;
+        box-shadow: none;
     }
 
     /* Green Save Button style */
     .save-btn {
-        background: #4cff9f;
-        color: #000;
-        margin-top: 10px;
+        background: linear-gradient(135deg, #4cff9f, #27ae60);
+        color: #052e16;
+        margin-top: 15px;
+        box-shadow: 0 4px 15px rgba(76, 255, 159, 0.3);
     }
     .save-btn:hover {
-        background: #7dfcbd;
+        background: linear-gradient(135deg, #7dfcbd, #2ecc71);
+        box-shadow: 0 6px 20px rgba(76, 255, 159, 0.4);
     }
 
     .status {
-        margin-top: 16px;
-        font-size: 14px;
+        margin-top: 10px;
+        font-size: 13px;
         min-height: 20px;
         text-align: center;
         line-height: 1.5;
+        font-weight: 500;
     }
 
     .success { color: #4cff9f; }
     .error { color: #ff7a7a; }
-    .step-info { color: #4fa3ff; font-weight: bold; }
+    
+    /* --- ADVANCED PROGRESS BAR --- */
+    #progressWrapper {
+        display: none; /* Hidden by default */
+        margin-top: 20px;
+        width: 100%;
+    }
 
-    /* JSON Preview Area Styles */
+    .progress-container {
+        width: 100%;
+        height: 8px;
+        background-color: #0f2735;
+        border-radius: 4px;
+        overflow: hidden;
+        position: relative;
+    }
+
+    .progress-fill {
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(90deg, #4fa3ff, #00d2ff);
+        border-radius: 4px;
+        transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+        position: relative;
+        box-shadow: 0 0 10px rgba(79, 163, 255, 0.5);
+    }
+
+    /* Animated sheen effect on the bar */
+    .progress-fill::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        right: 0;
+        background: linear-gradient(
+            90deg,
+            rgba(255, 255, 255, 0) 0%,
+            rgba(255, 255, 255, 0.3) 50%,
+            rgba(255, 255, 255, 0) 100%
+        );
+        transform: translateX(-100%);
+        animation: shimmer 1.5s infinite;
+    }
+
+    @keyframes shimmer {
+        100% { transform: translateX(100%); }
+    }
+
+    .progress-label {
+        font-size: 12px;
+        color: #4fa3ff;
+        margin-bottom: 5px;
+        display: flex;
+        justify-content: space-between;
+    }
+
+    /* --- JSON PREVIEW --- */
     #resultArea {
         display: none;
-        margin-top: 20px;
+        margin-top: 25px;
         border-top: 1px solid #1f3a4d;
-        padding-top: 15px;
+        padding-top: 20px;
+        animation: fadeIn 0.5s ease;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
     }
 
     textarea {
@@ -112,19 +190,28 @@
         background: #050e13;
         color: #a6e22e;
         border: 1px solid #1f3a4d;
-        border-radius: 6px;
-        padding: 10px;
+        border-radius: 8px;
+        padding: 12px;
         font-family: "Consolas", "Courier New", monospace;
         font-size: 12px;
         resize: vertical;
         box-sizing: border-box;
+        box-shadow: inset 0 2px 5px rgba(0,0,0,0.5);
+    }
+
+    textarea:focus {
+        outline: none;
+        border-color: #4fa3ff;
     }
 
     label {
         font-size: 12px;
-        color: #aaa;
+        color: #8daac2;
         display: block;
-        margin-bottom: 5px;
+        margin-bottom: 6px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
     }
 </style>
 </head>
@@ -135,7 +222,7 @@
     <h2>AI Non - OASIS Analyzer</h2>
     <p>Extraction & ICD-10 Compliance Audit</p>
 
-    <div id="loadingMessage" style="text-align:center; color:#4fa3ff; margin-bottom:15px;">
+    <div id="loadingMessage" style="text-align:center; color:#4fa3ff; margin-bottom:15px; font-weight:500;">
         Connecting to Salesforce...
     </div>
 
@@ -146,13 +233,23 @@
         <button id="analyzeBtn" onclick="startAnalysis()">
             Run Analysis & Audit
         </button>
+
+        <div id="progressWrapper">
+            <div class="progress-label">
+                <span id="progressText">Initializing...</span>
+                <span id="progressPercent">0%</span>
+            </div>
+            <div class="progress-container">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+        </div>
     </div>
 
     <div id="status" class="status"></div>
 
     <div id="resultArea">
         <label>Final Audited Result (ICD-10 Compliant):</label>
-        <textarea id="jsonOutput"></textarea>
+        <textarea id="jsonOutput" readonly></textarea>
         
         <button id="saveBtn" class="save-btn" onclick="finalizeSave()">
             Save to Salesforce
@@ -208,6 +305,30 @@ window.addEventListener("message", (event) => {
 });
 
 /* =========================================================
+   UI HELPERS (PROGRESS BAR)
+   ========================================================= */
+
+function updateProgress(percent, text) {
+    const wrapper = document.getElementById("progressWrapper");
+    const fill = document.getElementById("progressFill");
+    const textSpan = document.getElementById("progressText");
+    const percentSpan = document.getElementById("progressPercent");
+
+    // Show wrapper if hidden
+    wrapper.style.display = "block";
+
+    // Update width and text
+    fill.style.width = percent + "%";
+    if (text) textSpan.innerText = text;
+    percentSpan.innerText = percent + "%";
+}
+
+function resetProgress() {
+    document.getElementById("progressWrapper").style.display = "none";
+    document.getElementById("progressFill").style.width = "0%";
+}
+
+/* =========================================================
    MAIN LOGIC (CHAINED PROMPTS)
    ========================================================= */
 
@@ -220,6 +341,7 @@ async function startAnalysis() {
     // Reset UI
     resultArea.style.display = "none";
     jsonOutput.value = "";
+    showStatus(""); // Clear old status
     
     if (!CHART_ID || !GEMINI_API_KEY) {
         showStatus("❌ Configuration missing. Refresh Salesforce page.", true);
@@ -233,23 +355,30 @@ async function startAnalysis() {
 
     try {
         analyzeBtn.disabled = true;
+        updateProgress(5, "Initializing..."); // Start progress
+
         const startTime = Date.now();
         
         // --- STEP 1: READ FILE ---
-        showStatus("Reading file...");
+        updateProgress(15, "Reading document...");
         const base64Data = await readFileAsBase64(file);
 
         // --- STEP 2: VISION EXTRACTION (First Prompt) ---
-        showStatus('<span class="step-info">Step 1/2:</span> Extracting clinical data from document...');
+        // Simulating progress jump for UX
+        updateProgress(30, "AI Vision: Extracting clinical data...");
         
         const rawExtraction = await callGeminiVision(file.type, base64Data);
         console.log("Step 1 Output:", rawExtraction);
 
+        updateProgress(60, "Data Extracted. Starting Audit...");
+
         // --- STEP 3: RAG AUDIT (Second Prompt) ---
-        showStatus('<span class="step-info">Step 2/2:</span> Running ICD-10 Audit & Compliance Checks...');
+        updateProgress(75, "AI Auditor: Checking ICD-10 Rules...");
         
         // Pass the result of Step 1 into Step 2
         const finalAuditJson = await callGeminiAuditor(rawExtraction);
+        
+        updateProgress(95, "Finalizing results...");
         
         CACHED_AI_TIME = Math.floor((Date.now() - startTime) / 1000);
 
@@ -269,12 +398,20 @@ async function startAnalysis() {
         resultArea.style.display = "block";
         analyzeBtn.disabled = false;
         
-        showStatus("✅ Analysis & Audit Complete. Review below.", false);
+        updateProgress(100, "Complete");
+        setTimeout(() => {
+             // Optional: Hide progress bar after completion or leave at 100%
+             // resetProgress(); 
+             showStatus("✅ Analysis & Audit Complete. Review below.", false);
+        }, 800);
 
     } catch (error) {
         console.error(error);
         showStatus("❌ " + error.message, true);
         analyzeBtn.disabled = false;
+        // Turn bar red on error?
+        document.getElementById("progressFill").style.background = "#ff7a7a";
+        document.getElementById("progressText").innerText = "Error";
     }
 }
 
@@ -410,10 +547,6 @@ ${extractedText}
     `;
 
     // 3. Prepare Payload with RAG Tool
-    // Note: The specific structure for "tools" depends on whether you are using 
-    // Vertex AI Semantic Search or Gemini File API. 
-    // Below is the structure for Semantic Retrieval if 'VECTOR_STORE_ID' is a resource name.
-    
     let toolsConfig = [];
     
     // Only attach tool if ID is present
@@ -425,8 +558,6 @@ ${extractedText}
                 }
             }
         }];
-        // Note: If using standard Gemini File API corpus, simple "semantic_retrieval" might be used instead.
-        // If your setup uses a "Corpus name", adjust the key below accordingly.
     }
 
     const response = await fetch(
@@ -531,6 +662,4 @@ async function sendToSalesforce(rawJson, aiTimeSeconds) {
 </script>
 
 </body>
-
 </html>
-
