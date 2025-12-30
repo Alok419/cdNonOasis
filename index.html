@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>AI OASIS Analyzer & ICD-10 Auditor</title>
+
+<style>
+    body {
+        margin: 0;
+        padding: 0;
+        font-family: "Segoe UI", Arial, sans-serif;
+        background: #0b1f2a;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        color: #ffffff;
+    }
+
+    .card {
+        width: 520px;
+        background: #081821;
+        border-radius: 14px;
+        padding: 28px;
+        box-shadow: 0 20px 50px rgba(0,0,0,.45);
+        margin: 20px 0;
+    }
+
+    h2 {
+        margin-top: 0;
+        margin-bottom: 8px;
+        font-weight: 600;
+        text-align: center;
+    }
+
+    p {
+        font-size: 14px;
+        opacity: 0.85;
+        text-align: center;
+        margin-bottom: 20px;
+    }
+
+    input[type="file"] {
+        width: 100%;
+        padding: 12px;
+        border-radius: 8px;
+        border: 1px dashed #4fa3ff;
+        background: #06141c;
+        color: #fff;
+        cursor: pointer;
+        box-sizing: border-box;
+        margin-bottom: 10px;
+    }
+
+    button {
+        margin-top: 10px;
+        width: 100%;
+        padding: 12px;
+        background: #4fa3ff;
+        border: none;
+        border-radius: 8px;
+        color: #000;
+        font-weight: bold;
+        font-size: 15px;
+        cursor: pointer;
+        transition: background 0.3s;
+    }
+
+    button:hover {
+        background: #7abaff;
+    }
+
+    button:disabled {
+        background: #6b6b6b;
+        cursor: not-allowed;
+        color: #d1d1d1;
+    }
+
+    /* Green Save Button style */
+    .save-btn {
+        background: #4cff9f;
+        color: #000;
+        margin-top: 10px;
+    }
+    .save-btn:hover {
+        background: #7dfcbd;
+    }
+
+    .status {
+        margin-top: 16px;
+        font-size: 14px;
+        min-height: 20px;
+        text-align: center;
+        line-height: 1.5;
+    }
+
+    .success { color: #4cff9f; }
+    .error { color: #ff7a7a; }
+    .step-info { color: #4fa3ff; font-weight: bold; }
+
+    /* JSON Preview Area Styles */
+    #resultArea {
+        display: none;
+        margin-top: 20px;
+        border-top: 1px solid #1f3a4d;
+        padding-top: 15px;
+    }
+
+    textarea {
+        width: 100%;
+        height: 250px;
+        background: #050e13;
+        color: #a6e22e;
+        border: 1px solid #1f3a4d;
+        border-radius: 6px;
+        padding: 10px;
+        font-family: "Consolas", "Courier New", monospace;
+        font-size: 12px;
+        resize: vertical;
+        box-sizing: border-box;
+    }
+
+    label {
+        font-size: 12px;
+        color: #aaa;
+        display: block;
+        margin-bottom: 5px;
+    }
+</style>
+</head>
+
+<body>
+
+<div class="card">
+    <h2>AI OASIS Analyzer</h2>
+    <p>Extraction & ICD-10 Compliance Audit</p>
+
+    <div id="loadingMessage" style="text-align:center; color:#4fa3ff; margin-bottom:15px;">
+        Connecting to Salesforce...
+    </div>
+
+    <div id="mainControls" style="display:none;">
+        <label>Select Document (Chart):</label>
+        <input type="file" id="fileInput" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" />
+
+        <button id="analyzeBtn" onclick="startAnalysis()">
+            Run Analysis & Audit
+        </button>
+    </div>
+
+    <div id="status" class="status"></div>
+
+    <div id="resultArea">
+        <label>Final Audited Result (ICD-10 Compliant):</label>
+        <textarea id="jsonOutput"></textarea>
+        
+        <button id="saveBtn" class="save-btn" onclick="finalizeSave()">
+            Save to Salesforce
+        </button>
+    </div>
+</div>
+
+<script>
+/* =========================================================
+   GLOBAL CONTEXT
+   ========================================================= */
+
+let CHART_ID = null;
+let GEMINI_API_KEY = null;
+let SF_SESSION_ID = null;
+let SF_BASE_URL = null; 
+let VECTOR_STORE_ID = null; // Passed from Salesforce for RAG
+let CACHED_AI_TIME = 0;
+
+// Step 1 Model: Vision/Fast
+const GEMINI_VISION_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"; 
+
+// Step 2 Model: Reasoning/RAG (Pro is better for Audit logic)
+const GEMINI_RAG_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent"; 
+
+/* =========================================================
+   LISTENER: RECEIVE DATA FROM SALESFORCE LWC
+   ========================================================= */
+
+const ALLOWED_ORIGINS = [
+    "https://codingdepartment--pcopy.sandbox.lightning.force.com",
+    "https://codingdepartment--pcopy.sandbox.my.salesforce.com"
+];
+
+window.addEventListener("message", (event) => {
+    // Optional: Security check on event.origin if required
+    
+    if (event.data && event.data.type === "SF_CONTEXT") {
+        console.log("✅ Received Context from Salesforce");
+        
+        CHART_ID = event.data.recordId;
+        GEMINI_API_KEY = event.data.apiKey;
+        SF_SESSION_ID = event.data.sessionId;
+        SF_BASE_URL = event.data.baseUrl;
+        VECTOR_STORE_ID = event.data.vectorStoreId; // Capture the RAG Store ID
+        
+        // Update UI
+        document.getElementById("loadingMessage").style.display = "none";
+        document.getElementById("mainControls").style.display = "block";
+        
+        showStatus("✅ Connected. Ready to analyze.", false);
+    }
+});
+
+/* =========================================================
+   MAIN LOGIC (CHAINED PROMPTS)
+   ========================================================= */
+
+async function startAnalysis() {
+    const analyzeBtn = document.getElementById("analyzeBtn");
+    const resultArea = document.getElementById("resultArea");
+    const jsonOutput = document.getElementById("jsonOutput");
+    const file = document.getElementById("fileInput").files[0];
+    
+    // Reset UI
+    resultArea.style.display = "none";
+    jsonOutput.value = "";
+    
+    if (!CHART_ID || !GEMINI_API_KEY) {
+        showStatus("❌ Configuration missing. Refresh Salesforce page.", true);
+        return;
+    }
+
+    if (!file) {
+        showStatus("❌ Please select a file", true);
+        return;
+    }
+
+    try {
+        analyzeBtn.disabled = true;
+        const startTime = Date.now();
+        
+        // --- STEP 1: READ FILE ---
+        showStatus("Reading file...");
+        const base64Data = await readFileAsBase64(file);
+
+        // --- STEP 2: VISION EXTRACTION (First Prompt) ---
+        showStatus('<span class="step-info">Step 1/2:</span> Extracting clinical data from document...');
+        
+        const rawExtraction = await callGeminiVision(file.type, base64Data);
+        console.log("Step 1 Output:", rawExtraction);
+
+        // --- STEP 3: RAG AUDIT (Second Prompt) ---
+        showStatus('<span class="step-info">Step 2/2:</span> Running ICD-10 Audit & Compliance Checks...');
+        
+        // Pass the result of Step 1 into Step 2
+        const finalAuditJson = await callGeminiAuditor(rawExtraction);
+        
+        CACHED_AI_TIME = Math.floor((Date.now() - startTime) / 1000);
+
+        // --- STEP 4: DISPLAY RESULT ---
+        // Pretty print logic
+        let prettyJson = finalAuditJson;
+        try {
+            // Clean markdown blocks if present
+            const cleanJson = finalAuditJson.replace(/```json/g, "").replace(/```/g, "").trim();
+            const parsed = JSON.parse(cleanJson);
+            prettyJson = JSON.stringify(parsed, null, 4);
+        } catch (e) {
+            console.warn("Could not pretty print JSON");
+        }
+
+        jsonOutput.value = prettyJson;
+        resultArea.style.display = "block";
+        analyzeBtn.disabled = false;
+        
+        showStatus("✅ Analysis & Audit Complete. Review below.", false);
+
+    } catch (error) {
+        console.error(error);
+        showStatus("❌ " + error.message, true);
+        analyzeBtn.disabled = false;
+    }
+}
+
+/* =========================================================
+   API CALLS
+   ========================================================= */
+
+// --- CALL 1: EXTRACT DATA (VISION) ---
+async function callGeminiVision(mimeType, base64Data) {
+    
+    const extractionPrompt = `
+You are a clinical document extraction auditor.
+You MUST perform a FULL scan of ALL uploaded files before generating output.
+
+Your job:
+- Extract diagnoses EXACTLY as written
+- Identify potential primary diagnoses
+- Provide justification for each selected diagnosis
+- Specify the exact location (page, section, or line reference)
+
+STRICT OUTPUT FORMAT (Return ONLY this text):
+
+SECTION 1: PATIENT DIAGNOSIS DETAILS
+Patient Name: <name or NOT FOUND>
+Age: <age or NOT FOUND>
+
+Potential Primary Diagnoses:
+- Diagnosis: <diagnosis>
+  ICD Code: <code>
+  Reason & Source: <why selected, page/section>
+
+Secondary Diagnoses:
+- Diagnosis: <diagnosis>
+  ICD Code: <code>
+  Reason & Source: <snippet, page/section>
+
+Missing any diagnosis is an audit failure.
+    `;
+
+    const response = await fetch(
+        `${GEMINI_VISION_ENDPOINT}?key=${GEMINI_API_KEY}`,
+        {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                contents: [{
+                    parts: [
+                        { text: extractionPrompt },
+                        { inlineData: { mimeType: mimeType, data: base64Data } }
+                    ]
+                }]
+            })
+        }
+    );
+
+    if (!response.ok) {
+        throw new Error("Step 1 (Extraction) failed: " + response.statusText);
+    }
+
+    const data = await response.json();
+    return data.candidates[0].content.parts[0].text;
+}
+
+
+// --- CALL 2: AUDIT DATA (RAG + REASONING) ---
+async function callGeminiAuditor(extractedText) {
+    
+    // 1. Construct the System Prompt
+    const auditorSystemPrompt = `
+You are an Expert ICD-10-CM Medical Coding Auditor and Compliance Officer.
+Your task is to perform a complete audit and produce a correct, conflict-free, clinically validated, mandatory-rule-compliant, properly sequenced ICD-10-CM diagnostic output.
+
+You have FOUR authoritative knowledge sources accessible via Retrieval:
+1. File A — ICD-10-CM Excel Database
+2. File B — ICD-10-CM Tabular List PDF
+3. File C — ICD-10 Potential Primary Diagnosis Codes
+4. File D — Coding Tip File
+
+======================================================================
+STRICT RULE — POTENTIAL PRIMARY LOGIC
+======================================================================
+A diagnosis can be "potentialPrimary" ONLY IF:
+• It appears under “Potential Primary Diagnosis” in the input AND
+• The ICD exists in File C AND
+• Clinical Group (from File C) is NOT blank
+Otherwise → potentialPrimary MUST be false.
+
+======================================================================
+GLOBAL RULE — EVERY CODE MUST BE CHECKED AGAINST ALL GUIDELINES
+======================================================================
+For EACH ICD code you output, YOU MUST:
+• Validate the ICD from File A
+• Apply ALL applicable Tabular List rules from File B (Excludes1, Excludes2, Code First, Use Additional Code)
+• Apply Coding Tips from File D
+• Apply sequencing rules EXACTLY as mandated
+• Remove any ICD code that violates a rule or creates a contradiction
+
+======================================================================
+IMPORTANT — ABOUT REASON & SOURCE
+======================================================================
+For each diagnosis:
+• The returned JSON must include reasonSource EXACTLY as provided
+• If YOU add an ICD due to a rule (Code First, Use Additional, etc.), generate a NEW reasonSource explaining why.
+
+======================================================================
+FINAL OUTPUT FORMAT (STRICT JSON)
+======================================================================
+[
+  {
+    "code": "<ICD from File A>",
+    "reasonSource": "<Original text OR rule-based explanation>",
+    "potentialPrimary": true or false
+  }
+]
+
+STEP 1 — Normalize & Validate
+STEP 2 — Apply Potential Primary Validation
+STEP 3 — Apply Excludes1
+STEP 4 — Apply Excludes2
+STEP 5 — Apply Coding Tips (File D)
+STEP 6 — Apply CODE FIRST rules
+STEP 7 — Apply USE ADDITIONAL CODE rules
+STEP 8 — Final sequencing and conflict removal
+    `;
+
+    // 2. Inject the output from Step 1
+    const userPrompt = `
+======================================================================
+INPUT DIAGNOSES TO AUDIT:
+======================================================================
+
+${extractedText}
+    `;
+
+    // 3. Prepare Payload with RAG Tool
+    // Note: The specific structure for "tools" depends on whether you are using 
+    // Vertex AI Semantic Search or Gemini File API. 
+    // Below is the structure for Semantic Retrieval if 'VECTOR_STORE_ID' is a resource name.
+    
+    let toolsConfig = [];
+    
+    // Only attach tool if ID is present
+    if (VECTOR_STORE_ID) {
+        toolsConfig = [{
+            retrieval: {
+                vertex_ai_search: {
+                    datastore: VECTOR_STORE_ID 
+                }
+            }
+        }];
+        // Note: If using standard Gemini File API corpus, simple "semantic_retrieval" might be used instead.
+        // If your setup uses a "Corpus name", adjust the key below accordingly.
+    }
+
+    const response = await fetch(
+        `${GEMINI_RAG_ENDPOINT}?key=${GEMINI_API_KEY}`,
+        {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                system_instruction: {
+                    parts: [{ text: auditorSystemPrompt }]
+                },
+                contents: [{
+                    parts: [{ text: userPrompt }]
+                }],
+                // Attach the RAG tool here
+                tools: toolsConfig 
+            })
+        }
+    );
+
+    if (!response.ok) {
+        const err = await response.text();
+        throw new Error("Step 2 (Audit) failed: " + err);
+    }
+
+    const data = await response.json();
+    return data.candidates[0].content.parts[0].text;
+}
+
+/* =========================================================
+   HELPER FUNCTIONS & SAVE
+   ========================================================= */
+
+function showStatus(message, isError = false) {
+    const status = document.getElementById("status");
+    status.innerHTML = `<span class="${isError ? 'error' : 'success'}">${message}</span>`;
+}
+
+function readFileAsBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(",")[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+}
+
+async function finalizeSave() {
+    const saveBtn = document.getElementById("saveBtn");
+    const jsonOutput = document.getElementById("jsonOutput");
+    const finalJson = jsonOutput.value;
+
+    if (!finalJson) {
+        showStatus("❌ No data to save", true);
+        return;
+    }
+
+    try {
+        saveBtn.disabled = true;
+        saveBtn.innerText = "Saving...";
+        showStatus("Saving results to Salesforce...");
+
+        await sendToSalesforce(finalJson, CACHED_AI_TIME);
+
+        showStatus("✅ Saved successfully to Salesforce!", false);
+        saveBtn.innerText = "Saved";
+        
+        setTimeout(() => {
+             saveBtn.disabled = false;
+             saveBtn.innerText = "Save to Salesforce";
+        }, 3000);
+
+    } catch (error) {
+        console.error(error);
+        showStatus("❌ Save failed: " + error.message, true);
+        saveBtn.disabled = false;
+        saveBtn.innerText = "Save to Salesforce";
+    }
+}
+
+async function sendToSalesforce(rawJson, aiTimeSeconds) {
+    const endpoint = `${SF_BASE_URL}/services/apexrest/oasis/ai-result`;
+
+    const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+            "Authorization": "Bearer " + SF_SESSION_ID,
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            chartId: CHART_ID,
+            rawJson: rawJson,
+            aiTimeSeconds: aiTimeSeconds
+        })
+    });
+
+    if (!response.ok) {
+        const text = await response.text();
+        throw new Error("Salesforce save failed: " + text);
+    }
+}
+</script>
+
+</body>
+</html>
