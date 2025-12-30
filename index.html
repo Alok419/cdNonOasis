@@ -2,9 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>AI OASIS Analyzer & ICD-10 Auditor</title>
+<title>AI OASIS Analyzer</title>
 
 <style>
+    /* --- GLOBAL LAYOUT (Existing Dark Theme) --- */
     body {
         margin: 0;
         padding: 0;
@@ -18,7 +19,7 @@
     }
 
     .card {
-        width: 520px;
+        width: 600px; /* Widened slightly to fit file list comfortably */
         background: #081821;
         border-radius: 14px;
         padding: 28px;
@@ -45,14 +46,9 @@
         color: #8daac2;
     }
 
-    /* --- FILE INPUT & LIST --- */
-    .file-upload-wrapper {
-        position: relative;
-        margin-bottom: 15px;
-    }
-
-    /* Hide the actual input but keep it clickable via label or JS triggers if needed, 
-       but here we style the input directly for simplicity */
+    /* --- FILE INPUT --- */
+    /* Hidden file input, triggered by a styled label if needed, 
+       but standard input is kept for functionality. */
     input[type="file"] {
         width: 100%;
         padding: 12px;
@@ -62,31 +58,39 @@
         color: #fff;
         cursor: pointer;
         box-sizing: border-box;
+        margin-bottom: 20px;
         transition: border-color 0.3s;
     }
-    
     input[type="file"]:hover {
         border-color: #7abaff;
-        background: #091e2b;
     }
 
-    /* The container for the list of selected files */
-    #fileListContainer {
-        margin-bottom: 15px;
+    /* --- NEW FILE LIST DESIGN (Matching Screenshot) --- */
+    .file-section-header {
+        font-size: 14px;
+        color: #4fa3ff; /* Salesforce Blue-ish */
+        font-weight: 700;
+        margin-bottom: 10px;
         display: none; /* Hidden until files are added */
     }
 
+    #fileListContainer {
+        display: none;
+        margin-bottom: 25px;
+        background: #f3f3f3; /* Light container background like screenshot? Or keep transparent */
+        background: transparent;
+    }
+
     .file-item {
-        background: #102a38;
-        border: 1px solid #1f3a4d;
-        border-radius: 6px;
-        padding: 8px 12px;
-        margin-bottom: 6px;
+        background: #ffffff; /* White Card */
+        border: 1px solid #d8dde6;
+        border-radius: 4px;
+        padding: 10px 15px;
+        margin-bottom: 8px;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        font-size: 13px;
-        color: #d1e8ff;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         animation: slideIn 0.3s ease;
     }
 
@@ -95,168 +99,146 @@
         to { opacity: 1; transform: translateY(0); }
     }
 
+    .file-info {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: #16325c; /* Dark text for contrast on white card */
+        font-size: 13px;
+        font-weight: 500;
+        overflow: hidden;
+    }
+
+    .file-icon {
+        color: #706e6b;
+        font-size: 16px;
+    }
+
     .file-name {
+        white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        white-space: nowrap;
-        max-width: 85%;
+        max-width: 350px;
     }
 
-    .remove-file-btn {
-        background: none;
-        border: none;
-        color: #ff7a7a;
+    /* Trash Button Style */
+    .remove-btn {
+        background: #ffffff;
+        border: 1px solid #dddbda;
+        border-radius: 4px;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         cursor: pointer;
-        font-size: 16px;
-        font-weight: bold;
-        padding: 0 5px;
-        transition: color 0.2s;
+        color: #706e6b;
+        transition: all 0.2s;
     }
 
-    .remove-file-btn:hover {
-        color: #ff4c4c;
+    .remove-btn:hover {
+        border-color: #005fb2;
+        color: #005fb2;
+        background: #f4f6f9;
     }
 
-    /* --- ACTION BUTTONS --- */
-    button {
-        width: 100%;
-        padding: 14px;
-        background: linear-gradient(135deg, #4fa3ff, #2980b9);
+    /* --- ANALYZE BUTTON (Centered Blue) --- */
+    .action-row {
+        text-align: center;
+        margin-top: 20px;
+    }
+
+    button.analyze-btn {
+        background: #0176d3; /* Salesforce Blue */
+        color: white;
         border: none;
-        border-radius: 8px;
-        color: #fff;
+        padding: 10px 24px;
+        font-size: 14px;
         font-weight: 600;
-        font-size: 15px;
+        border-radius: 4px;
         cursor: pointer;
-        transition: transform 0.2s, box-shadow 0.2s;
-        box-shadow: 0 4px 15px rgba(79, 163, 255, 0.3);
+        transition: background 0.2s;
+        min-width: 120px;
     }
 
-    button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(79, 163, 255, 0.4);
+    button.analyze-btn:hover {
+        background: #014486;
     }
 
-    button:disabled {
-        background: #374752;
-        color: #7c8c99;
+    button.analyze-btn:disabled {
+        background: #c9c7c5;
         cursor: not-allowed;
-        transform: none;
-        box-shadow: none;
     }
 
+    /* --- RESULTS & PROGRESS --- */
     .save-btn {
+        width: 100%;
+        padding: 12px;
         background: linear-gradient(135deg, #4cff9f, #27ae60);
         color: #052e16;
+        border: none;
+        border-radius: 6px;
+        font-weight: bold;
         margin-top: 15px;
-        box-shadow: 0 4px 15px rgba(76, 255, 159, 0.3);
-    }
-    .save-btn:hover {
-        background: linear-gradient(135deg, #7dfcbd, #2ecc71);
-        box-shadow: 0 6px 20px rgba(76, 255, 159, 0.4);
+        cursor: pointer;
     }
 
     .status {
-        margin-top: 10px;
+        margin-top: 15px;
         font-size: 13px;
-        min-height: 20px;
         text-align: center;
-        line-height: 1.5;
-        font-weight: 500;
+        min-height: 20px;
     }
-
     .success { color: #4cff9f; }
     .error { color: #ff7a7a; }
-    
-    /* --- ADVANCED PROGRESS BAR --- */
+
+    /* Progress Bar */
     #progressWrapper {
         display: none;
         margin-top: 20px;
         width: 100%;
     }
-
     .progress-container {
         width: 100%;
         height: 8px;
         background-color: #0f2735;
         border-radius: 4px;
         overflow: hidden;
-        position: relative;
+        margin-top: 5px;
     }
-
     .progress-fill {
         height: 100%;
         width: 0%;
         background: linear-gradient(90deg, #4fa3ff, #00d2ff);
-        border-radius: 4px;
-        transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
-        position: relative;
-        box-shadow: 0 0 10px rgba(79, 163, 255, 0.5);
+        transition: width 0.4s ease;
     }
-
-    .progress-fill::after {
-        content: "";
-        position: absolute;
-        top: 0;
-        left: 0;
-        bottom: 0;
-        right: 0;
-        background: linear-gradient(
-            90deg,
-            rgba(255, 255, 255, 0) 0%,
-            rgba(255, 255, 255, 0.3) 50%,
-            rgba(255, 255, 255, 0) 100%
-        );
-        transform: translateX(-100%);
-        animation: shimmer 1.5s infinite;
-    }
-
-    @keyframes shimmer {
-        100% { transform: translateX(100%); }
-    }
-
     .progress-label {
         font-size: 12px;
         color: #4fa3ff;
-        margin-bottom: 5px;
         display: flex;
         justify-content: space-between;
     }
 
-    /* --- JSON PREVIEW --- */
+    /* Results */
     #resultArea {
         display: none;
         margin-top: 25px;
         border-top: 1px solid #1f3a4d;
         padding-top: 20px;
-        animation: fadeIn 0.5s ease;
     }
-
-    @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(10px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
-
     textarea {
         width: 100%;
         height: 250px;
         background: #050e13;
         color: #a6e22e;
         border: 1px solid #1f3a4d;
-        border-radius: 8px;
+        border-radius: 6px;
         padding: 12px;
-        font-family: "Consolas", "Courier New", monospace;
+        font-family: monospace;
         font-size: 12px;
         resize: vertical;
         box-sizing: border-box;
-        box-shadow: inset 0 2px 5px rgba(0,0,0,0.5);
     }
-
-    textarea:focus {
-        outline: none;
-        border-color: #4fa3ff;
-    }
-
     label {
         font-size: 12px;
         color: #8daac2;
@@ -264,7 +246,6 @@
         margin-bottom: 6px;
         font-weight: 600;
         text-transform: uppercase;
-        letter-spacing: 0.5px;
     }
 </style>
 </head>
@@ -280,15 +261,22 @@
     </div>
 
     <div id="mainControls" style="display:none;">
-        <label>Select Documents (Multi-select allowed):</label>
         
+        <label>Select Documents:</label>
         <input type="file" id="fileInput" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" multiple onchange="handleFileSelect(this)" />
         
-        <div id="fileListContainer"></div>
+        <div id="fileSectionHeader" class="file-section-header">
+            Uploaded Files (<span id="fileCount">0</span>)
+        </div>
 
-        <button id="analyzeBtn" onclick="startAnalysis()">
-            Run Analysis & Audit
-        </button>
+        <div id="fileListContainer">
+            </div>
+
+        <div class="action-row">
+            <button id="analyzeBtn" class="analyze-btn" onclick="startAnalysis()">
+                Analyze Files
+            </button>
+        </div>
 
         <div id="progressWrapper">
             <div class="progress-label">
@@ -325,14 +313,14 @@ let SF_BASE_URL = null;
 let VECTOR_STORE_ID = null;
 let CACHED_AI_TIME = 0;
 
-// Store selected files in an array
+// Array to store actual File objects
 let selectedFiles = [];
 
 const GEMINI_VISION_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent"; 
 const GEMINI_RAG_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent"; 
 
 /* =========================================================
-   LISTENER: RECEIVE DATA FROM SALESFORCE LWC
+   SALESFORCE CONNECTION
    ========================================================= */
 
 window.addEventListener("message", (event) => {
@@ -347,63 +335,77 @@ window.addEventListener("message", (event) => {
         
         document.getElementById("loadingMessage").style.display = "none";
         document.getElementById("mainControls").style.display = "block";
-        
-        showStatus("✅ Connected. Ready to upload files.", false);
     }
 });
 
 /* =========================================================
-   FILE MANAGEMENT LOGIC
+   FILE UI LOGIC (MATCHING SCREENSHOT)
    ========================================================= */
 
 function handleFileSelect(inputElement) {
     if (inputElement.files && inputElement.files.length > 0) {
-        // Add new files to our array
+        // Append new files to existing list
         for (let i = 0; i < inputElement.files.length; i++) {
             selectedFiles.push(inputElement.files[i]);
         }
-        updateFileListUI();
+        renderFileList();
         
-        // Clear input so same file can be selected again if needed
+        // Reset input value so same file can be selected again if user wants
         inputElement.value = ""; 
-        showStatus(`${selectedFiles.length} file(s) ready for analysis.`, false);
     }
 }
 
 function removeFile(index) {
     selectedFiles.splice(index, 1);
-    updateFileListUI();
-    if (selectedFiles.length === 0) {
-        showStatus("List cleared. Please select files.", false);
-    } else {
-        showStatus(`${selectedFiles.length} file(s) remaining.`, false);
-    }
+    renderFileList();
 }
 
-function updateFileListUI() {
+function renderFileList() {
     const container = document.getElementById("fileListContainer");
-    container.innerHTML = ""; // Clear current display
+    const header = document.getElementById("fileSectionHeader");
+    const countSpan = document.getElementById("fileCount");
+    
+    container.innerHTML = ""; // Clear current view
 
     if (selectedFiles.length === 0) {
         container.style.display = "none";
+        header.style.display = "none";
         return;
     }
 
+    // Show Header and Container
+    header.style.display = "block";
     container.style.display = "block";
+    countSpan.innerText = selectedFiles.length;
 
+    // Generate Cards
     selectedFiles.forEach((file, index) => {
         const item = document.createElement("div");
         item.className = "file-item";
+        
+        // Trash Icon SVG
+        const trashIconSvg = `
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+        `;
+
         item.innerHTML = `
-            <span class="file-name">📄 ${file.name}</span>
-            <button class="remove-file-btn" onclick="removeFile(${index})" title="Remove">×</button>
+            <div class="file-info">
+                <span class="file-icon">📄</span> 
+                <span class="file-name">${file.name}</span>
+            </div>
+            <button class="remove-btn" onclick="removeFile(${index})" title="Remove File">
+                ${trashIconSvg}
+            </button>
         `;
         container.appendChild(item);
     });
 }
 
 /* =========================================================
-   UI HELPERS (PROGRESS BAR)
+   PROGRESS BAR HELPER
    ========================================================= */
 
 function updateProgress(percent, text) {
@@ -419,7 +421,7 @@ function updateProgress(percent, text) {
 }
 
 /* =========================================================
-   MAIN LOGIC (CHAINED PROMPTS)
+   MAIN ANALYSIS LOGIC
    ========================================================= */
 
 async function startAnalysis() {
@@ -427,78 +429,68 @@ async function startAnalysis() {
     const resultArea = document.getElementById("resultArea");
     const jsonOutput = document.getElementById("jsonOutput");
     
-    // Reset UI
+    // UI Reset
     resultArea.style.display = "none";
     jsonOutput.value = "";
     showStatus(""); 
     
-    // Checks
+    // Validations
     if (!CHART_ID || !GEMINI_API_KEY) {
         showStatus("❌ Configuration missing. Refresh Salesforce page.", true);
         return;
     }
 
     if (selectedFiles.length === 0) {
-        showStatus("❌ Please add at least one file.", true);
+        showStatus("❌ Please upload at least one file.", true);
         return;
     }
 
     try {
         analyzeBtn.disabled = true;
+        analyzeBtn.innerText = "Analyzing...";
+        
         updateProgress(5, "Initializing Batch...");
-
         const startTime = Date.now();
         
-        // --- STEP 1: READ ALL FILES ---
-        updateProgress(10, `Reading ${selectedFiles.length} file(s)...`);
+        // --- STEP 1: READ FILES ---
+        updateProgress(10, `Processing ${selectedFiles.length} file(s)...`);
         
-        // Convert all files to Base64 in parallel
+        // Convert all files to Base64
         const filePromises = selectedFiles.map(file => readFileAsBase64(file));
         const fileDataArray = await Promise.all(filePromises);
 
-        // --- STEP 2: VISION EXTRACTION (First Prompt) ---
-        updateProgress(30, "AI Vision: Scanning all documents...");
-        
-        // Send ALL files to Gemini in one request
+        // --- STEP 2: VISION EXTRACTION ---
+        updateProgress(35, "AI Vision: Scanning Documents...");
         const rawExtraction = await callGeminiVisionMulti(fileDataArray);
-        console.log("Step 1 Output:", rawExtraction);
+        console.log("Vision Output:", rawExtraction);
 
-        updateProgress(60, "Extraction Done. Starting Audit...");
-
-        // --- STEP 3: RAG AUDIT (Second Prompt) ---
-        updateProgress(75, "AI Auditor: Validating ICD-10 Rules...");
-        
+        // --- STEP 3: AUDIT & COMPLIANCE ---
+        updateProgress(70, "AI Auditor: Validating ICD-10 Rules...");
         const finalAuditJson = await callGeminiAuditor(rawExtraction);
         
-        updateProgress(95, "Finalizing results...");
-        
+        updateProgress(90, "Finalizing Results...");
         CACHED_AI_TIME = Math.floor((Date.now() - startTime) / 1000);
 
-        // --- STEP 4: DISPLAY RESULT ---
+        // --- STEP 4: DISPLAY ---
         let prettyJson = finalAuditJson;
         try {
             const cleanJson = finalAuditJson.replace(/```json/g, "").replace(/```/g, "").trim();
             const parsed = JSON.parse(cleanJson);
             prettyJson = JSON.stringify(parsed, null, 4);
-        } catch (e) {
-            console.warn("Could not pretty print JSON");
-        }
+        } catch (e) { console.warn("Formatting failed"); }
 
         jsonOutput.value = prettyJson;
         resultArea.style.display = "block";
-        analyzeBtn.disabled = false;
         
         updateProgress(100, "Complete");
-        setTimeout(() => {
-             showStatus("✅ Analysis & Audit Complete.", false);
-        }, 800);
+        showStatus("✅ Analysis Complete.", false);
 
     } catch (error) {
         console.error(error);
         showStatus("❌ " + error.message, true);
+    } finally {
         analyzeBtn.disabled = false;
-        document.getElementById("progressFill").style.background = "#ff7a7a";
-        document.getElementById("progressText").innerText = "Error";
+        analyzeBtn.innerText = "Analyze Files";
     }
 }
 
@@ -506,139 +498,82 @@ async function startAnalysis() {
    API CALLS
    ========================================================= */
 
-// --- CALL 1: EXTRACT DATA (MULTI-FILE SUPPORT) ---
 async function callGeminiVisionMulti(fileDataArray) {
-    
     const extractionPrompt = `
 You are a clinical document extraction auditor.
-You MUST perform a FULL scan of ALL attached documents (pages/files) before generating output.
-Treat all attachments as one single patient chart.
+Process ALL attached files as a single patient chart.
 
-Your job:
-- Extract diagnoses EXACTLY as written
-- Identify potential primary diagnoses
-- Provide justification for each selected diagnosis
-- Specify the exact source (Filename or Page #)
+Task:
+- Extract diagnoses EXACTLY as written.
+- Identify potential primary diagnoses.
+- Provide source file name/page for every finding.
 
-STRICT OUTPUT FORMAT (Return ONLY this text):
-
-SECTION 1: PATIENT DIAGNOSIS DETAILS
-Patient Name: <name or NOT FOUND>
-Age: <age or NOT FOUND>
+OUTPUT FORMAT (Return ONLY this text):
+SECTION 1: PATIENT DETAILS
+Name: <name> | Age: <age>
 
 Potential Primary Diagnoses:
-- Diagnosis: <diagnosis>
+- Diagnosis: <dx>
   ICD Code: <code>
-  Reason & Source: <why selected, file/page>
+  Reason & Source: <reason, filename>
 
 Secondary Diagnoses:
-- Diagnosis: <diagnosis>
+- Diagnosis: <dx>
   ICD Code: <code>
-  Reason & Source: <snippet, file/page>
+  Reason & Source: <snippet, filename>
     `;
 
-    // Construct the "parts" array dynamically based on number of files
-    const parts = [
-        { text: extractionPrompt }
-    ];
-
-    // Add each file as an inlineData part
+    const parts = [{ text: extractionPrompt }];
     fileDataArray.forEach(f => {
         parts.push({
-            inlineData: {
-                mimeType: f.mimeType,
-                data: f.base64
-            }
+            inlineData: { mimeType: f.mimeType, data: f.base64 }
         });
     });
 
-    const response = await fetch(
-        `${GEMINI_VISION_ENDPOINT}?key=${GEMINI_API_KEY}`,
-        {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                contents: [{
-                    parts: parts
-                }]
-            })
-        }
-    );
+    const response = await fetch(`${GEMINI_VISION_ENDPOINT}?key=${GEMINI_API_KEY}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contents: [{ parts: parts }] })
+    });
 
-    if (!response.ok) {
-        throw new Error("Step 1 (Extraction) failed: " + response.statusText);
-    }
-
+    if (!response.ok) throw new Error("Vision Step Failed");
     const data = await response.json();
     return data.candidates[0].content.parts[0].text;
 }
 
-
-// --- CALL 2: AUDIT DATA (RAG) ---
 async function callGeminiAuditor(extractedText) {
-    
     const auditorSystemPrompt = `
-You are an Expert ICD-10-CM Medical Coding Auditor.
-Your task is to perform a complete audit and produce a correct, conflict-free, clinically validated, mandatory-rule-compliant ICD-10-CM diagnostic output.
+You are an Expert ICD-10-CM Auditor.
+Audit the input diagnoses against mandatory rules (Excludes1, Sequencing, Code First).
 
-[... Standard Rules from previous context apply ...]
-
-FINAL OUTPUT FORMAT (STRICT JSON):
-[
-  {
-    "code": "<ICD>",
-    "reasonSource": "<Explanation>",
-    "potentialPrimary": true/false
-  }
-]
+OUTPUT JSON:
+[ { "code": "...", "reasonSource": "...", "potentialPrimary": true/false } ]
     `;
 
-    const userPrompt = `
-======================================================================
-INPUT DIAGNOSES TO AUDIT:
-======================================================================
-${extractedText}
-    `;
+    const userPrompt = `INPUT:\n${extractedText}`;
 
     let toolsConfig = [];
     if (VECTOR_STORE_ID) {
-        toolsConfig = [{
-            retrieval: {
-                vertex_ai_search: {
-                    datastore: VECTOR_STORE_ID 
-                }
-            }
-        }];
+        toolsConfig = [{ retrieval: { vertex_ai_search: { datastore: VECTOR_STORE_ID } } }];
     }
 
-    const response = await fetch(
-        `${GEMINI_RAG_ENDPOINT}?key=${GEMINI_API_KEY}`,
-        {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                system_instruction: {
-                    parts: [{ text: auditorSystemPrompt }]
-                },
-                contents: [{
-                    parts: [{ text: userPrompt }]
-                }],
-                tools: toolsConfig 
-            })
-        }
-    );
+    const response = await fetch(`${GEMINI_RAG_ENDPOINT}?key=${GEMINI_API_KEY}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            system_instruction: { parts: [{ text: auditorSystemPrompt }] },
+            contents: [{ parts: [{ text: userPrompt }] }],
+            tools: toolsConfig
+        })
+    });
 
-    if (!response.ok) {
-        const err = await response.text();
-        throw new Error("Step 2 (Audit) failed: " + err);
-    }
-
+    if (!response.ok) throw new Error("Audit Step Failed");
     const data = await response.json();
     return data.candidates[0].content.parts[0].text;
 }
 
 /* =========================================================
-   HELPER FUNCTIONS
+   HELPERS
    ========================================================= */
 
 function showStatus(message, isError = false) {
@@ -646,17 +581,14 @@ function showStatus(message, isError = false) {
     status.innerHTML = `<span class="${isError ? 'error' : 'success'}">${message}</span>`;
 }
 
-// Updated to return an object with mimeType and data
 function readFileAsBase64(file) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
-        reader.onload = () => {
-            resolve({
-                mimeType: file.type,
-                base64: reader.result.split(",")[1],
-                name: file.name
-            });
-        };
+        reader.onload = () => resolve({
+            mimeType: file.type,
+            base64: reader.result.split(",")[1],
+            name: file.name
+        });
         reader.onerror = reject;
         reader.readAsDataURL(file);
     });
@@ -665,31 +597,18 @@ function readFileAsBase64(file) {
 async function finalizeSave() {
     const saveBtn = document.getElementById("saveBtn");
     const jsonOutput = document.getElementById("jsonOutput");
-    const finalJson = jsonOutput.value;
-
-    if (!finalJson) {
-        showStatus("❌ No data to save", true);
-        return;
-    }
-
+    
     try {
         saveBtn.disabled = true;
         saveBtn.innerText = "Saving...";
-        showStatus("Saving results to Salesforce...");
-
-        await sendToSalesforce(finalJson, CACHED_AI_TIME);
-
-        showStatus("✅ Saved successfully!", false);
-        saveBtn.innerText = "Saved";
         
-        setTimeout(() => {
-             saveBtn.disabled = false;
-             saveBtn.innerText = "Save to Salesforce";
-        }, 3000);
-
-    } catch (error) {
-        console.error(error);
-        showStatus("❌ Save failed: " + error.message, true);
+        await sendToSalesforce(jsonOutput.value, CACHED_AI_TIME);
+        
+        showStatus("✅ Saved to Salesforce!", false);
+        saveBtn.innerText = "Saved";
+        setTimeout(() => { saveBtn.disabled = false; saveBtn.innerText = "Save to Salesforce"; }, 3000);
+    } catch (e) {
+        showStatus("❌ Save failed: " + e.message, true);
         saveBtn.disabled = false;
         saveBtn.innerText = "Save to Salesforce";
     }
@@ -697,24 +616,12 @@ async function finalizeSave() {
 
 async function sendToSalesforce(rawJson, aiTimeSeconds) {
     const endpoint = `${SF_BASE_URL}/services/apexrest/oasis/ai-result`;
-
     const response = await fetch(endpoint, {
         method: "POST",
-        headers: {
-            "Authorization": "Bearer " + SF_SESSION_ID,
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-            chartId: CHART_ID,
-            rawJson: rawJson,
-            aiTimeSeconds: aiTimeSeconds
-        })
+        headers: { "Authorization": "Bearer " + SF_SESSION_ID, "Content-Type": "application/json" },
+        body: JSON.stringify({ chartId: CHART_ID, rawJson: rawJson, aiTimeSeconds: aiTimeSeconds })
     });
-
-    if (!response.ok) {
-        const text = await response.text();
-        throw new Error("Salesforce save failed: " + text);
-    }
+    if (!response.ok) throw new Error(await response.text());
 }
 </script>
 
