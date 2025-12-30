@@ -615,7 +615,7 @@ async function finalizeSave() {
 }
 
 async function sendToSalesforce(rawJson, aiTimeSeconds) {
-    const endpoint = `${SF_BASE_URL}/services/apexrest/oasis/ai-result`;
+    const endpoint =  `${SF_BASE_URL}/services/apexrest/non-oasis/ai-result`;
     const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Authorization": "Bearer " + SF_SESSION_ID, "Content-Type": "application/json" },
@@ -627,3 +627,4 @@ async function sendToSalesforce(rawJson, aiTimeSeconds) {
 
 </body>
 </html>
+
