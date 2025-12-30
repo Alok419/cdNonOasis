@@ -173,10 +173,10 @@ let VECTOR_STORE_ID = null; // Passed from Salesforce for RAG
 let CACHED_AI_TIME = 0;
 
 // Step 1 Model: Vision/Fast
-const GEMINI_VISION_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"; 
+const GEMINI_VISION_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent"; 
 
 // Step 2 Model: Reasoning/RAG (Pro is better for Audit logic)
-const GEMINI_RAG_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent"; 
+const GEMINI_RAG_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent"; 
 
 /* =========================================================
    LISTENER: RECEIVE DATA FROM SALESFORCE LWC
@@ -533,3 +533,4 @@ async function sendToSalesforce(rawJson, aiTimeSeconds) {
 </body>
 
 </html>
+
