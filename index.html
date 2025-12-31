@@ -229,9 +229,10 @@
         border-top: 1px solid #1f3a4d;
         padding-top: 20px;
     }
-    textarea {
+    
+    /* Shared textarea style */
+    .result-box {
         width: 100%;
-        height: 150px;
         background: #050e13;
         color: #a6e22e;
         border: 1px solid #1f3a4d;
@@ -243,6 +244,10 @@
         box-sizing: border-box;
         margin-bottom: 15px;
     }
+
+    textarea#jsonOutput { height: 200px; }
+    textarea#f2fOutput { height: 100px; color: #ffc107; } /* Different color for F2F */
+
     label {
         font-size: 12px;
         color: #8daac2;
@@ -258,7 +263,7 @@
 
 <div class="card">
     <h2>AI Non - OASIS Analyzer</h2>
-    <p>Extraction, F2F Summary & ICD-10 Compliance Audit</p>
+    <p>Extraction, ICD-10 Compliance & F2F Summary</p>
 
     <div id="loadingMessage" style="text-align:center; color:#4fa3ff; margin-bottom:15px; font-weight:500;">
         Connecting to Salesforce...
@@ -296,11 +301,11 @@
     <div id="status" class="status"></div>
 
     <div id="resultArea">
-        <label>F2F Clinical Summary:</label>
-        <textarea id="f2fOutput" readonly style="height: 100px; color: #4fa3ff;"></textarea>
+        <label>F2F Encounter Summary:</label>
+        <textarea id="f2fOutput" class="result-box" readonly></textarea>
 
         <label>Final Audited Result (ICD-10 Compliant):</label>
-        <textarea id="jsonOutput" readonly></textarea>
+        <textarea id="jsonOutput" class="result-box" readonly></textarea>
         
         <button id="saveBtn" class="save-btn" onclick="finalizeSave()">
             Save Data & Files to Salesforce
@@ -351,10 +356,13 @@ window.addEventListener("message", (event) => {
 
 function handleFileSelect(inputElement) {
     if (inputElement.files && inputElement.files.length > 0) {
+        // Append new files to existing list
         for (let i = 0; i < inputElement.files.length; i++) {
             selectedFiles.push(inputElement.files[i]);
         }
         renderFileList();
+        
+        // Reset input value so same file can be selected again if user wants
         inputElement.value = ""; 
     }
 }
@@ -369,7 +377,7 @@ function renderFileList() {
     const header = document.getElementById("fileSectionHeader");
     const countSpan = document.getElementById("fileCount");
     
-    container.innerHTML = ""; 
+    container.innerHTML = ""; // Clear current view
 
     if (selectedFiles.length === 0) {
         container.style.display = "none";
@@ -377,14 +385,17 @@ function renderFileList() {
         return;
     }
 
+    // Show Header and Container
     header.style.display = "block";
     container.style.display = "block";
     countSpan.innerText = selectedFiles.length;
 
+    // Generate Cards
     selectedFiles.forEach((file, index) => {
         const item = document.createElement("div");
         item.className = "file-item";
         
+        // Trash Icon SVG
         const trashIconSvg = `
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="3 6 5 6 21 6"></polyline>
@@ -452,24 +463,27 @@ async function startAnalysis() {
         analyzeBtn.disabled = true;
         analyzeBtn.innerText = "Analyzing...";
         
-        updateProgress(5, "Reading Files...");
+        updateProgress(5, "Initializing Batch...");
         const startTime = Date.now();
         
         // --- STEP 1: READ FILES ---
+        updateProgress(10, `Processing ${selectedFiles.length} file(s)...`);
+        
+        // Convert all files to Base64
         const filePromises = selectedFiles.map(file => readFileAsBase64(file));
         const fileDataArray = await Promise.all(filePromises);
 
-        updateProgress(20, "AI: Scanning for Diagnoses & F2F Summary...");
-
-        // --- STEP 2: PARALLEL VISION & SUMMARY ---
-        // Run both extraction and F2F summary at the same time
-        const [rawExtraction, f2fSummary] = await Promise.all([
+        // --- STEP 2: PARALLEL EXECUTION (Extraction + F2F Summary) ---
+        updateProgress(30, "AI Vision & F2F Analysis Running...");
+        
+        // We run both the ICD extraction and the F2F summary concurrently
+        const [rawExtraction, f2fSummaryText] = await Promise.all([
             callGeminiVisionMulti(fileDataArray),
-            callGeminiF2F(fileDataArray)
+            callGeminiF2FSummary(fileDataArray)
         ]);
 
         console.log("Vision Output:", rawExtraction);
-        console.log("F2F Summary:", f2fSummary);
+        console.log("F2F Output:", f2fSummaryText);
 
         // --- STEP 3: AUDIT & COMPLIANCE ---
         updateProgress(70, "AI Auditor: Validating ICD-10 Rules...");
@@ -487,7 +501,8 @@ async function startAnalysis() {
         } catch (e) { console.warn("Formatting failed"); }
 
         jsonOutput.value = prettyJson;
-        f2fOutput.value = f2fSummary;
+        f2fOutput.value = f2fSummaryText; // Set F2F summary
+
         resultArea.style.display = "block";
         
         updateProgress(100, "Complete");
@@ -516,6 +531,7 @@ async function finalizeSave() {
         
         // --- PART 1: SAVE JSON DATA & F2F VIA APEX ---
         saveBtn.innerText = "Saving Data...";
+        // We pass the F2F summary text along with the JSON
         await sendToSalesforce(jsonOutput.value, f2fOutput.value, CACHED_AI_TIME);
 
         // --- PART 2: UPLOAD FILES VIA STANDARD API ---
@@ -549,7 +565,7 @@ async function sendToSalesforce(rawJson, f2fSummary, aiTimeSeconds) {
         body: JSON.stringify({ 
             chartId: CHART_ID, 
             rawJson: rawJson, 
-            f2fSummary: f2fSummary, // Added field
+            f2fSummary: f2fSummary, // Added this field
             aiTimeSeconds: aiTimeSeconds 
         })
     });
@@ -562,6 +578,7 @@ async function saveFilesToSalesforceRecord() {
 
     for (let i = 0; i < selectedFiles.length; i++) {
         const file = selectedFiles[i];
+        
         showStatus(`Uploading file ${i+1} of ${selectedFiles.length}: ${file.name}...`, false);
         
         try {
@@ -592,6 +609,8 @@ async function saveFilesToSalesforceRecord() {
                 throw new Error(`Salesforce Error: ${errorCode} - ${errorMessage}`);
             }
 
+            console.log(`✅ Upload Success: ${file.name}`);
+
         } catch (err) {
             console.error(err);
             showStatus(`❌ Failed to upload ${file.name}: ${err.message}`, true);
@@ -603,9 +622,61 @@ async function saveFilesToSalesforceRecord() {
    API CALLS (GEMINI)
    ========================================================= */
 
+// NEW FUNCTION: F2F Summary
+async function callGeminiF2FSummary(fileDataArray) {
+    // Prompt taken exactly from the provided Apex reference
+    const f2fPrompt = `
+You will receive multiple uploaded clinical documents.
+Your job is to carefully READ and UNDERSTAND all documents using full medical reasoning.
+
+Determine whether ANY file represents a clinical:
+- Face-to-Face (F2F) visit note, OR
+- Encounter note, OR
+- Evaluation/assessment visit documentation, OR
+- Any clinical document describing a direct meeting with the patient.
+
+Do NOT rely on keywords. Use your understanding of medical documentation structure, tone, content, and intent.
+If no such document exists, reply EXACTLY with: "No F2F document found."
+
+If such a document EXISTS:
+→ Provide a concise clinical summary UNDER 200 WORDS that includes:
+   - Reason for visit
+   - Key diagnoses or conditions mentioned
+   - Symptoms or significant findings
+   - Any plan, recommendations, or follow-up if mentioned
+
+Summarize ONLY what is written. Never fabricate or assume.
+    `;
+
+    const parts = [{ text: f2fPrompt }];
+    fileDataArray.forEach(f => {
+        parts.push({
+            inlineData: { mimeType: f.mimeType, data: f.base64 }
+        });
+    });
+
+    const response = await fetch(`${GEMINI_VISION_ENDPOINT}?key=${GEMINI_API_KEY}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contents: [{ parts: parts }] })
+    });
+
+    if (!response.ok) {
+        console.warn("F2F Summary failed, returning default message.");
+        return "No F2F document found."; // Fail gracefully
+    }
+    const data = await response.json();
+    let text = data.candidates[0].content.parts[0].text;
+    
+    // Clean markdown if present
+    text = text.replace(/\*/g, "").trim();
+    return text;
+}
+
 async function callGeminiVisionMulti(fileDataArray) {
     const extractionPrompt = `
 You are a clinical document extraction auditor.
+
 You MUST perform a FULL scan of ALL uploaded files before generating any output.
 Treat ALL files as ONE combined patient chart.
 
@@ -666,6 +737,7 @@ You MUST read every line of every uploaded file.
 Missing any diagnosis is considered an audit failure.
 YOU MUST NOT summarize, assume, or fabricate any diagnosis.
 Every output must directly come from the uploaded files.
+
     `;
 
     const parts = [{ text: extractionPrompt }];
@@ -686,59 +758,6 @@ Every output must directly come from the uploaded files.
     return data.candidates[0].content.parts[0].text;
 }
 
-// --- NEW FUNCTION: F2F SUMMARY ---
-async function callGeminiF2F(fileDataArray) {
-    const f2fPrompt = `
-You will receive multiple uploaded clinical documents.
-Your job is to carefully READ and UNDERSTAND all documents using full medical reasoning.
-
-Determine whether ANY file represents a clinical:
-- Face-to-Face (F2F) visit note, OR
-- Encounter note, OR
-- Evaluation/assessment visit documentation, OR
-- Any clinical document describing a direct meeting with the patient.
-
-Do NOT rely on keywords. Use your understanding of medical documentation structure, tone, content, and intent.
-
-If no such document exists, reply EXACTLY with: "No F2F document found."
-
-If such a document EXISTS:
-→ Provide a concise clinical summary UNDER 200 WORDS that includes:
-   - Reason for visit
-   - Key diagnoses or conditions mentioned
-   - Symptoms or significant findings
-   - Any plan, recommendations, or follow-up if mentioned
-
-Summarize ONLY what is written. Never fabricate or assume.
-    `;
-
-    const parts = [{ text: f2fPrompt }];
-    fileDataArray.forEach(f => {
-        parts.push({
-            inlineData: { mimeType: f.mimeType, data: f.base64 }
-        });
-    });
-
-    const response = await fetch(`${GEMINI_VISION_ENDPOINT}?key=${GEMINI_API_KEY}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contents: [{ parts: parts }] })
-    });
-
-    if (!response.ok) throw new Error("F2F Summary Step Failed");
-    const data = await response.json();
-    
-    // Clean response
-    let text = data.candidates[0].content.parts[0].text;
-    text = text.replace('#', '').replace('*', '');
-    
-    // Check for negative result
-    if (text.toLowerCase().includes('no f2f') || text.toLowerCase().includes('not a face')) {
-        return "No F2F document found.";
-    }
-    return text.trim();
-}
-
 async function callGeminiAuditor(extractedText) {
     const auditorSystemPrompt = `
 You are an Expert ICD-10-CM Medical Coding Auditor and Compliance Officer.
@@ -748,9 +767,12 @@ diagnostic output.
 
 You have FOUR authoritative knowledge sources:
 1. File A — ICD-10-CM Excel Database (valid codes + official descriptions)
-2. File B — ICD-10-CM Tabular List PDF (Includes, Excludes1, Excludes2, Code First, Use Additional Code, sequencing rules)
-3. File C — ICD-10 Potential Primary Diagnosis Codes (Only these clinically valid codes can be potential primary.)
-4. File D — Coding Tip File (Guidelines, overrides, use additional code, sequencing adjustments.)
+2. File B — ICD-10-CM Tabular List PDF (Includes, Excludes1, Excludes2, Code First,
+   Use Additional Code, sequencing rules)
+3. File C — ICD-10 Potential Primary Diagnosis Codes
+   (Only these clinically valid codes can be potential primary.)
+4. File D — Coding Tip File
+   (Guidelines, overrides, use additional code, sequencing adjustments.)
 
 ======================================================================
 STRICT RULE — POTENTIAL PRIMARY LOGIC
@@ -835,13 +857,15 @@ STEP 6 — Apply CODE FIRST rules (insert required parent ICDs)
 
 STEP 7 — Apply USE ADDITIONAL CODE rules (insert required secondary ICDs)
 
-STEP 8 — Final compliance validation, sequencing correction, and conflict removal
+STEP 8 — Final compliance validation, sequencing correction,
+          and conflict removal
 
 ======================================================================
 INPUT DIAGNOSES TO AUDIT:
 ======================================================================
 
 <medicalExtractText>
+
     `;
 
     const userPrompt = `INPUT:\n${extractedText}`;
