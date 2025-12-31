@@ -5,7 +5,7 @@
 <title>AI OASIS Analyzer</title>
 
 <style>
-    /* --- GLOBAL LAYOUT (Existing Dark Theme) --- */
+    /* --- GLOBAL LAYOUT (Dark Theme) --- */
     body {
         margin: 0;
         padding: 0;
@@ -19,7 +19,7 @@
     }
 
     .card {
-        width: 600px; /* Widened slightly to fit file list comfortably */
+        width: 600px;
         background: #081821;
         border-radius: 14px;
         padding: 28px;
@@ -47,8 +47,6 @@
     }
 
     /* --- FILE INPUT --- */
-    /* Hidden file input, triggered by a styled label if needed, 
-       but standard input is kept for functionality. */
     input[type="file"] {
         width: 100%;
         padding: 12px;
@@ -65,24 +63,23 @@
         border-color: #7abaff;
     }
 
-    /* --- NEW FILE LIST DESIGN (Matching Screenshot) --- */
+    /* --- FILE LIST DESIGN --- */
     .file-section-header {
         font-size: 14px;
-        color: #4fa3ff; /* Salesforce Blue-ish */
+        color: #4fa3ff;
         font-weight: 700;
         margin-bottom: 10px;
-        display: none; /* Hidden until files are added */
+        display: none;
     }
 
     #fileListContainer {
         display: none;
         margin-bottom: 25px;
-        background: #f3f3f3; /* Light container background like screenshot? Or keep transparent */
         background: transparent;
     }
 
     .file-item {
-        background: #ffffff; /* White Card */
+        background: #ffffff;
         border: 1px solid #d8dde6;
         border-radius: 4px;
         padding: 10px 15px;
@@ -103,7 +100,7 @@
         display: flex;
         align-items: center;
         gap: 10px;
-        color: #16325c; /* Dark text for contrast on white card */
+        color: #16325c;
         font-size: 13px;
         font-weight: 500;
         overflow: hidden;
@@ -142,14 +139,14 @@
         background: #f4f6f9;
     }
 
-    /* --- ANALYZE BUTTON (Centered Blue) --- */
+    /* --- ANALYZE BUTTON --- */
     .action-row {
         text-align: center;
         margin-top: 20px;
     }
 
     button.analyze-btn {
-        background: #0176d3; /* Salesforce Blue */
+        background: #0176d3;
         color: white;
         border: none;
         padding: 10px 24px;
@@ -181,6 +178,12 @@
         font-weight: bold;
         margin-top: 15px;
         cursor: pointer;
+    }
+
+    .save-btn:disabled {
+        background: #7f8c8d; /* Greyed out */
+        color: #fff;
+        cursor: not-allowed;
     }
 
     .status {
@@ -270,7 +273,7 @@
         </div>
 
         <div id="fileListContainer">
-            </div>
+        </div>
 
         <div class="action-row">
             <button id="analyzeBtn" class="analyze-btn" onclick="startAnalysis()">
@@ -296,7 +299,7 @@
         <textarea id="jsonOutput" readonly></textarea>
         
         <button id="saveBtn" class="save-btn" onclick="finalizeSave()">
-            Save to Salesforce
+            Save Data & Files to Salesforce
         </button>
     </div>
 </div>
@@ -339,7 +342,7 @@ window.addEventListener("message", (event) => {
 });
 
 /* =========================================================
-   FILE UI LOGIC (MATCHING SCREENSHOT)
+   FILE UI LOGIC
    ========================================================= */
 
 function handleFileSelect(inputElement) {
@@ -495,7 +498,95 @@ async function startAnalysis() {
 }
 
 /* =========================================================
-   API CALLS
+   SAVE LOGIC (JSON + FILES)
+   ========================================================= */
+
+async function finalizeSave() {
+    const saveBtn = document.getElementById("saveBtn");
+    const jsonOutput = document.getElementById("jsonOutput");
+    
+    try {
+        saveBtn.disabled = true;
+        
+        // --- PART 1: SAVE JSON DATA VIA APEX ---
+        saveBtn.innerText = "Saving Data...";
+        await sendToSalesforce(jsonOutput.value, CACHED_AI_TIME);
+
+        // --- PART 2: UPLOAD FILES VIA STANDARD API ---
+        if (selectedFiles.length > 0) {
+            saveBtn.innerText = `Uploading ${selectedFiles.length} Files...`;
+            await saveFilesToSalesforceRecord();
+        }
+        
+        showStatus("✅ Data & Files Saved Successfully!", false);
+        saveBtn.innerText = "Saved";
+        
+        setTimeout(() => { 
+            saveBtn.disabled = false; 
+            saveBtn.innerText = "Save Data & Files to Salesforce"; 
+        }, 3000);
+
+    } catch (e) {
+        console.error(e);
+        showStatus("❌ Save failed: " + e.message, true);
+        saveBtn.disabled = false;
+        saveBtn.innerText = "Save Data & Files to Salesforce";
+    }
+}
+
+// 1. Send JSON to Custom Apex REST API
+async function sendToSalesforce(rawJson, aiTimeSeconds) {
+    const endpoint =  `${SF_BASE_URL}/services/apexrest/non-oasis/ai-result`;
+    const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Authorization": "Bearer " + SF_SESSION_ID, "Content-Type": "application/json" },
+        body: JSON.stringify({ chartId: CHART_ID, rawJson: rawJson, aiTimeSeconds: aiTimeSeconds })
+    });
+    if (!response.ok) throw new Error(await response.text());
+}
+
+// 2. Upload Files directly to ContentVersion (Standard Salesforce API)
+async function saveFilesToSalesforceRecord() {
+    // API v57.0 is widely supported; ensure your org supports it
+    const endpoint = `${SF_BASE_URL}/services/data/v57.0/sobjects/ContentVersion`;
+
+    for (let i = 0; i < selectedFiles.length; i++) {
+        const file = selectedFiles[i];
+        
+        // Update status for user feedback
+        showStatus(`Uploading file ${i+1} of ${selectedFiles.length}: ${file.name}...`, false);
+        
+        // Get Base64 again
+        const fileData = await readFileAsBase64(file); 
+
+        // Payload for ContentVersion
+        // FirstPublishLocationId automatically links the file to the Chart Record
+        const payload = {
+            "Title": file.name,
+            "PathOnClient": file.name,
+            "VersionData": fileData.base64, 
+            "FirstPublishLocationId": CHART_ID 
+        };
+
+        const response = await fetch(endpoint, {
+            method: "POST",
+            headers: { 
+                "Authorization": "Bearer " + SF_SESSION_ID, 
+                "Content-Type": "application/json" 
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            const errText = await response.text();
+            console.error(`Failed to upload ${file.name}: ${errText}`);
+            // We continue loop even if one fails, or you can throw error here
+        }
+    }
+}
+
+/* =========================================================
+   API CALLS (GEMINI)
    ========================================================= */
 
 async function callGeminiVisionMulti(fileDataArray) {
@@ -736,39 +827,7 @@ function readFileAsBase64(file) {
         reader.readAsDataURL(file);
     });
 }
-
-async function finalizeSave() {
-    const saveBtn = document.getElementById("saveBtn");
-    const jsonOutput = document.getElementById("jsonOutput");
-    
-    try {
-        saveBtn.disabled = true;
-        saveBtn.innerText = "Saving...";
-        
-        await sendToSalesforce(jsonOutput.value, CACHED_AI_TIME);
-        
-        showStatus("✅ Saved to Salesforce!", false);
-        saveBtn.innerText = "Saved";
-        setTimeout(() => { saveBtn.disabled = false; saveBtn.innerText = "Save to Salesforce"; }, 3000);
-    } catch (e) {
-        showStatus("❌ Save failed: " + e.message, true);
-        saveBtn.disabled = false;
-        saveBtn.innerText = "Save to Salesforce";
-    }
-}
-
-async function sendToSalesforce(rawJson, aiTimeSeconds) {
-    const endpoint =  `${SF_BASE_URL}/services/apexrest/non-oasis/ai-result`;
-    const response = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Authorization": "Bearer " + SF_SESSION_ID, "Content-Type": "application/json" },
-        body: JSON.stringify({ chartId: CHART_ID, rawJson: rawJson, aiTimeSeconds: aiTimeSeconds })
-    });
-    if (!response.ok) throw new Error(await response.text());
-}
 </script>
 
 </body>
 </html>
-
-
