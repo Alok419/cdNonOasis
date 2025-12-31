@@ -501,26 +501,68 @@ async function startAnalysis() {
 async function callGeminiVisionMulti(fileDataArray) {
     const extractionPrompt = `
 You are a clinical document extraction auditor.
-Process ALL attached files as a single patient chart.
 
-Task:
-- Extract diagnoses EXACTLY as written.
-- Identify potential primary diagnoses.
-- Provide source file name/page for every finding.
+You MUST perform a FULL scan of ALL uploaded files before generating any output.
+Treat ALL files as ONE combined patient chart.
 
-OUTPUT FORMAT (Return ONLY this text):
-SECTION 1: PATIENT DETAILS
-Name: <name> | Age: <age>
+Your job:
+- Extract diagnoses EXACTLY as written
+- Identify potential primary diagnoses
+- Provide justification for each selected diagnosis
+- Specify the exact location (page, section, or line reference) where it was found
+
+====================================================
+PRIMARY DIAGNOSIS SELECTION RULES
+====================================================
+1. Identify diagnoses that are clinically primary based on:
+   - Reason for visit
+   - Acute presentation
+   - Major treatment focus
+   - Explicitly labeled primary diagnoses
+   - Repeated emphasis
+2. If the document explicitly labels "Primary Diagnosis", include it.
+3. If multiple diagnoses qualify, return ALL potential primary diagnoses.
+4. Do NOT assume anything. Use only the document text.
+
+====================================================
+DIAGNOSIS EXTRACTION RULES
+====================================================
+1. Extract ALL diagnoses exactly as written.
+2. If an ICD code is present next to a diagnosis, return it exactly.
+3. If no ICD code is found, return "".
+4. Remove duplicates.
+5. All diagnoses NOT classified as primary MUST appear under Secondary Diagnoses.
+6. For each diagnosis, return REASON & SOURCE in simple plain text.
+
+====================================================
+STRICT OUTPUT FORMAT (Return ONLY this text)
+====================================================
+
+SECTION 1: PATIENT DIAGNOSIS DETAILS
+Patient Name: <name or NOT FOUND>
+Age: <age or NOT FOUND>
 
 Potential Primary Diagnoses:
-- Diagnosis: <dx>
+- Diagnosis: <diagnosis>
   ICD Code: <code>
-  Reason & Source: <reason, filename>
+  Reason & Source:
+  <why selected>
+  <page/section/snippet found>
+(Repeat for each)
 
 Secondary Diagnoses:
-- Diagnosis: <dx>
+- Diagnosis: <diagnosis>
   ICD Code: <code>
-  Reason & Source: <snippet, filename>
+  Reason & Source:
+  <snippet or evidence>
+  <page/section found>
+(Repeat for each)
+
+You MUST read every line of every uploaded file.
+Missing any diagnosis is considered an audit failure.
+YOU MUST NOT summarize, assume, or fabricate any diagnosis.
+Every output must directly come from the uploaded files.
+
     `;
 
     const parts = [{ text: extractionPrompt }];
@@ -543,11 +585,112 @@ Secondary Diagnoses:
 
 async function callGeminiAuditor(extractedText) {
     const auditorSystemPrompt = `
-You are an Expert ICD-10-CM Auditor.
-Audit the input diagnoses against mandatory rules (Excludes1, Sequencing, Code First).
+You are an Expert ICD-10-CM Medical Coding Auditor and Compliance Officer.
+Your task is to perform a complete audit and produce a correct, conflict-free,
+clinically validated, mandatory-rule-compliant, properly sequenced ICD-10-CM
+diagnostic output.
 
-OUTPUT JSON:
-[ { "code": "...", "reasonSource": "...", "potentialPrimary": true/false } ]
+You have FOUR authoritative knowledge sources:
+1. File A — ICD-10-CM Excel Database (valid codes + official descriptions)
+2. File B — ICD-10-CM Tabular List PDF (Includes, Excludes1, Excludes2, Code First,
+   Use Additional Code, sequencing rules)
+3. File C — ICD-10 Potential Primary Diagnosis Codes
+   (Only these clinically valid codes can be potential primary.)
+4. File D — Coding Tip File
+   (Guidelines, overrides, use additional code, sequencing adjustments.)
+
+======================================================================
+STRICT RULE — POTENTIAL PRIMARY LOGIC
+======================================================================
+A diagnosis can be "potentialPrimary" ONLY IF:
+• It appears under “Potential Primary Diagnosis” in the input AND
+• The ICD exists in File C AND
+• Clinical Group (from File C) is NOT blank
+
+Otherwise → potentialPrimary MUST be false.
+
+potentialPrimary value MUST always be boolean (true or false).
+
+======================================================================
+GLOBAL RULE — EVERY CODE MUST BE CHECKED AGAINST ALL GUIDELINES
+======================================================================
+For EACH ICD code you output, YOU MUST:
+• Validate the ICD from File A (code + description)
+• Apply ALL applicable Tabular List rules from File B:
+  - Excludes1 → DROP conflicting codes
+  - Excludes2 → allow but handle correctly
+  - Code First → ensure parent condition appears before this code
+  - Use Additional Code → add the required secondary code
+• Apply Coding Tips from File D when relevant
+• Apply sequencing rules EXACTLY as mandated
+• Remove any ICD code that violates a rule or creates a contradiction
+
+EVERY RULE MUST BE APPLIED CODE BY CODE, NOT GLOBALLY.
+
+======================================================================
+IMPORTANT — ABOUT REASON & SOURCE
+======================================================================
+For each diagnosis in the input text:
+• Extract the exact "Reason & Source" block
+• The returned JSON must include reasonSource EXACTLY as provided
+• Keep reasonSource in simple plain text
+• Do NOT use single quotes or double quotes inside reasonSource
+
+If YOU add an ICD due to:
+• Code First rule
+• Use Additional Code rule
+• Coding Tip rule
+• Sequencing adjustment
+
+→ You MUST generate a NEW reasonSource explaining why the code was added.
+
+NO ICD should be returned without a reasonSource.
+
+======================================================================
+FINAL OUTPUT FORMAT (STRICT JSON — DO NOT CHANGE FIELD NAMES)
+======================================================================
+
+[
+  {
+    "code": "<ICD from File A>",
+    "reasonSource": "<Original text OR rule-based explanation in simple plain text>",
+    "potentialPrimary": true or false
+  }
+]
+
+======================================================================
+PROCESS STEPS YOU MUST FOLLOW
+======================================================================
+
+STEP 1 — Normalize & Validate Diagnoses
+• Extract all diagnoses and ICD codes
+• Validate each ICD using File A
+• Assign correct ICD where missing
+• DROP invalid, incomplete, or conflicting ICDs
+• Ensure potentialPrimary is always true or false
+• If undeterminable → default to false
+
+STEP 2 — Apply Potential Primary Validation
+
+STEP 3 — Apply Excludes1 (DROP conflicting codes)
+
+STEP 4 — Apply Excludes2 rules if relevant
+
+STEP 5 — Apply Coding Tips from File D (MANDATORY for each code)
+
+STEP 6 — Apply CODE FIRST rules (insert required parent ICDs)
+
+STEP 7 — Apply USE ADDITIONAL CODE rules (insert required secondary ICDs)
+
+STEP 8 — Final compliance validation, sequencing correction,
+          and conflict removal
+
+======================================================================
+INPUT DIAGNOSES TO AUDIT:
+======================================================================
+
+<medicalExtractText>
+
     `;
 
     const userPrompt = `INPUT:\n${extractedText}`;
@@ -627,4 +770,5 @@ async function sendToSalesforce(rawJson, aiTimeSeconds) {
 
 </body>
 </html>
+
 
