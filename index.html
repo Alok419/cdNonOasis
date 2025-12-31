@@ -546,41 +546,56 @@ async function sendToSalesforce(rawJson, aiTimeSeconds) {
 }
 
 // 2. Upload Files directly to ContentVersion (Standard Salesforce API)
+/* =========================================================
+   UPDATED FILE UPLOAD FUNCTION
+   ========================================================= */
 async function saveFilesToSalesforceRecord() {
-    // API v57.0 is widely supported; ensure your org supports it
+    // API v57.0 is standard and stable
     const endpoint = `${SF_BASE_URL}/services/data/v57.0/sobjects/ContentVersion`;
 
     for (let i = 0; i < selectedFiles.length; i++) {
         const file = selectedFiles[i];
         
-        // Update status for user feedback
         showStatus(`Uploading file ${i+1} of ${selectedFiles.length}: ${file.name}...`, false);
         
-        // Get Base64 again
-        const fileData = await readFileAsBase64(file); 
+        try {
+            const fileData = await readFileAsBase64(file); 
 
-        // Payload for ContentVersion
-        // FirstPublishLocationId automatically links the file to the Chart Record
-        const payload = {
-            "Title": file.name,
-            "PathOnClient": file.name,
-            "VersionData": fileData.base64, 
-            "FirstPublishLocationId": CHART_ID 
-        };
+            // payload structure for ContentVersion
+            const payload = {
+                "Title": file.name,
+                "PathOnClient": file.name,
+                "VersionData": fileData.base64, 
+                "FirstPublishLocationId": CHART_ID, // Links it to the record immediately
+                "Origin": "H" // 'H' for Chatter/Content, 'C' for Content
+            };
 
-        const response = await fetch(endpoint, {
-            method: "POST",
-            headers: { 
-                "Authorization": "Bearer " + SF_SESSION_ID, 
-                "Content-Type": "application/json" 
-            },
-            body: JSON.stringify(payload)
-        });
+            const response = await fetch(endpoint, {
+                method: "POST",
+                headers: { 
+                    "Authorization": "Bearer " + SF_SESSION_ID, 
+                    "Content-Type": "application/json",
+                    "Accept": "application/json"
+                },
+                body: JSON.stringify(payload)
+            });
 
-        if (!response.ok) {
-            const errText = await response.text();
-            console.error(`Failed to upload ${file.name}: ${errText}`);
-            // We continue loop even if one fails, or you can throw error here
+            if (!response.ok) {
+                // Read the actual error message from Salesforce
+                const errorData = await response.json(); 
+                const errorCode = errorData[0]?.errorCode || "UNKNOWN";
+                const errorMessage = errorData[0]?.message || "Unknown error";
+                
+                console.error(`Upload Failed for ${file.name}:`, errorData);
+                throw new Error(`Salesforce Error: ${errorCode} - ${errorMessage}`);
+            }
+
+            console.log(`✅ Upload Success: ${file.name}`);
+
+        } catch (err) {
+            console.error(err);
+            // Don't stop the whole process, just show error for this file
+            showStatus(`❌ Failed to upload ${file.name}: ${err.message}`, true);
         }
     }
 }
