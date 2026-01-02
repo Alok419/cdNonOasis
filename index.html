@@ -651,12 +651,18 @@
             </div>
             <div id="status" class="status"></div>
             <div id="resultArea">
-                <label>F2F Encounter Summary:</label>
+                <div>
+                    <label>F2F Encounter Summary:</label>
+                    <textarea id="f2fOutput" class="result-box" readonly></textarea>
+                    <label>Final Audited Result (ICD-10 Compliant):</label>
+                    <textarea id="jsonOutput" class="result-box" readonly></textarea>
+                </div>
+                <!-- <label>F2F Encounter Summary:</label>
                 <textarea id="f2fOutput" class="result-box" readonly></textarea>
                 <label>Final Audited Result (ICD-10 Compliant):</label>
-                <textarea id="jsonOutput" class="result-box" readonly></textarea>
+                <textarea id="jsonOutput" class="result-box" readonly></textarea> -->
                 <button id="saveBtn" class="save-btn" onclick="finalizeSave()">
-                    Save Data & Files to Salesforce
+                    Save Data & Files
                 </button>
             </div>
         </div>
