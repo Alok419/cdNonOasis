@@ -601,7 +601,7 @@
                     cursor: wait !important;
                 }
             </style>
-            <div id="mainControls" class="upload-card">
+            <div id="mainControls" class="upload-card" style="display:none;">
                 <!-- Header -->
                 <div class="upload-header">
                     <div class="upload-icon">📄</div>
@@ -638,20 +638,20 @@
                 <button id="analyzeBtn" class="analyze-btn" onclick="startAnalysis()">
                     Analyze Documents
                 </button>
-                <!-- Progress -->
-                <div id="progressWrapper" class="progress-wrapper">
-                    <div class="progress-label">
-                        <span id="progressText">Analyzing...</span>
-                        <span id="progressPercent">0%</span>
-                    </div>
-                    <div class="progress-container">
-                        <div class="progress-fill" id="progressFill"></div>
-                    </div>
+            </div>
+            <!-- Progress -->
+            <div id="progressWrapper" class="progress-wrapper">
+                <div class="progress-label">
+                    <span id="progressText">Analyzing...</span>
+                    <span id="progressPercent">0%</span>
+                </div>
+                <div class="progress-container">
+                    <div class="progress-fill" id="progressFill"></div>
                 </div>
             </div>
             <div id="status" class="status"></div>
             <div id="resultArea">
-                <div>
+                <div style="display:none">
                     <label>F2F Encounter Summary:</label>
                     <textarea id="f2fOutput" class="result-box" readonly></textarea>
                     <label>Final Audited Result (ICD-10 Compliant):</label>
