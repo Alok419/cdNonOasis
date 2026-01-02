@@ -1,10 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-<meta charset="UTF-8" />
-<title>AI OASIS Analyzer</title>
-
-<style>
+    <head>
+        <meta charset="UTF-8">
+        <title>AI OASIS Analyzer</title>
+        <style>
     /* --- GLOBAL LAYOUT (Dark Theme) --- */
     body {
         margin: 0;
@@ -256,64 +255,402 @@
         font-weight: 600;
         text-transform: uppercase;
     }
-</style>
-</head>
-
-<body>
-
-<div class="card">
-    <h2>AI Non - OASIS Analyzer</h2>
-    <p>Extraction, ICD-10 Compliance & F2F Summary</p>
-
-    <div id="loadingMessage" style="text-align:center; color:#4fa3ff; margin-bottom:15px; font-weight:500;">
-        Connecting to Salesforce...
-    </div>
-
-    <div id="mainControls" style="display:none;">
-        
-        <label>Select Documents:</label>
-        <input type="file" id="fileInput" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" multiple onchange="handleFileSelect(this)" />
-        
-        <div id="fileSectionHeader" class="file-section-header">
-            Uploaded Files (<span id="fileCount">0</span>)
-        </div>
-
-        <div id="fileListContainer">
-        </div>
-
-        <div class="action-row">
-            <button id="analyzeBtn" class="analyze-btn" onclick="startAnalysis()">
-                Analyze Files
-            </button>
-        </div>
-
-        <div id="progressWrapper">
-            <div class="progress-label">
-                <span id="progressText">Initializing...</span>
-                <span id="progressPercent">0%</span>
+        </style>
+    </head>
+    <body>
+        <div class="card">
+            <h2>AI Non - OASIS Analyzer</h2>
+            <p>Extraction, ICD-10 Compliance & F2F Summary</p>
+            <div id="loadingMessage" style="text-align:center; color:#4fa3ff; margin-bottom:15px; font-weight:500;">
+                Connecting to Salesforce...
             </div>
-            <div class="progress-container">
-                <div class="progress-fill" id="progressFill"></div>
+            <!-- <div id="mainControls" style="display:none;">
+        
+                    <label>Select Documents:</label>
+                    <input type="file" id="fileInput" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" multiple onchange="handleFileSelect(this)" />
+                    
+                    <div id="fileSectionHeader" class="file-section-header">
+                        Uploaded Files (<span id="fileCount">0</span>)
+                    </div>
+
+                    <div id="fileListContainer">
+                    </div>
+
+                    <div class="action-row">
+                        <button id="analyzeBtn" class="analyze-btn" onclick="startAnalysis()">
+                            Analyze Files
+                        </button>
+                    </div>
+
+                    <div id="progressWrapper">
+                        <div class="progress-label">
+                            <span id="progressText">Initializing...</span>
+                            <span id="progressPercent">0%</span>
+                        </div>
+                        <div class="progress-container">
+                            <div class="progress-fill" id="progressFill"></div>
+                        </div>
+                    </div>
+                </div> -->
+            <style>
+                    /* ================= Upload Card ================= */
+                .upload-card {
+                    background: linear-gradient(180deg, #0c2230, #081821);
+                    border: 1px solid #1f3a4d;
+                    border-radius: 14px;
+                    padding: 22px;
+                }
+
+                /* Header */
+                .upload-header {
+                    display: flex;
+                    gap: 12px;
+                    margin-bottom: 18px;
+                }
+
+                .upload-icon {
+                    width: 44px;
+                    height: 44px;
+                    border-radius: 10px;
+                    background: rgba(79,163,255,0.15);
+                    color: #7abaff;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 22px;
+                }
+
+                .upload-title {
+                    font-size: 15px;
+                    font-weight: 600;
+                    color: #e4f1ff;
+                }
+
+                .upload-subtitle {
+                    font-size: 12px;
+                    color: #9bb9d4;
+                }
+
+                /* Upload Zone */
+                .upload-zone {
+                    border: 2px dashed #355a74;
+                    border-radius: 12px;
+                    padding: 26px;
+                    text-align: center;
+                    background: #06141c;
+                    cursor: pointer;
+                    transition: all 0.25s ease;
+                    margin-bottom: 16px;
+                }
+
+                .upload-zone:hover {
+                    border-color: #7abaff;
+                    background: #081d2a;
+                }
+
+                .upload-zone-icon {
+                    font-size: 30px;
+                    color: #7abaff;
+                    margin-bottom: 6px;
+                }
+
+                .upload-zone-text {
+                    font-size: 13px;
+                    font-weight: 600;
+                    color: #d6eaff;
+                }
+
+                .upload-zone-hint {
+                    font-size: 11px;
+                    color: #8fbce6;
+                    margin-top: 4px;
+                }
+
+                /* File Section Header */
+                .file-section-header {
+                    font-size: 13px;
+                    font-weight: 600;
+                    color: #cfe7ff;
+                    margin-bottom: 10px;
+                    display: none;
+                }
+
+                /* File List */
+                .file-list {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 10px;
+                    margin-bottom: 16px;
+                }
+
+                /* Individual File Item */
+                .file-item {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    background: #ffffff;
+                    border-radius: 12px;
+                    padding: 10px 14px;
+                    border: 1px solid #e6e6e6;
+                    transition: all 0.2s ease;
+                }
+
+                .file-item:hover {
+                    box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+                }
+
+                .file-left {
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                    min-width: 0;
+                }
+
+                .file-type-icon {
+                    width: 36px;
+                    height: 36px;
+                    border-radius: 8px;
+                    background: #eef5ff;
+                    color: #4fa3ff;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 18px;
+                }
+
+                .file-meta {
+                    display: flex;
+                    flex-direction: column;
+                    min-width: 0;
+                }
+
+                .file-name {
+                    font-size: 13px;
+                    font-weight: 600;
+                    color: #1e1e1e;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    max-width: 260px;
+                }
+
+                .file-size {
+                    font-size: 11px;
+                    color: #6b6b6b;
+                }
+
+                /* Remove Button */
+                .remove-btn {
+                    background: transparent;
+                    border: none;
+                    color: #9b9b9b;
+                    cursor: pointer;
+                    padding: 6px;
+                    border-radius: 6px;
+                    transition: all 0.2s ease;
+                }
+
+                .remove-btn:hover {
+                    background: #ffecec;
+                    color: #d64545;
+                }
+
+                /* Analyze Button */
+                .analyze-btn {
+                    width: 100%;
+                    padding: 13px;
+                    border-radius: 10px;
+                    background: linear-gradient(135deg, #4fa3ff, #7abaff);
+                    border: none;
+                    font-size: 14px;
+                    font-weight: 600;
+                    color: #04121a;
+                    cursor: pointer;
+                    transition: all 0.25s ease;
+                }
+
+                .analyze-btn:not(:disabled):hover {
+                    transform: translateY(-1px);
+                    box-shadow: 0 12px 30px rgba(79,163,255,0.35);
+                }
+
+                .analyze-btn:disabled {
+                    background: #6b6b6b;
+                    color: #d1d1d1;
+                }
+
+                /* Progress */
+                .progress-wrapper {
+                    display: none;
+                    margin-top: 18px;
+                }
+
+                .progress-label {
+                    display: flex;
+                    justify-content: space-between;
+                    font-size: 12px;
+                    color: #9bb9d4;
+                    margin-bottom: 6px;
+                }
+
+                .progress-container {
+                    background: #102a3a;
+                    border-radius: 10px;
+                    height: 10px;
+                    overflow: hidden;
+                }
+
+                .progress-fill {
+                    height: 100%;
+                    width: 0%;
+                    background: linear-gradient(90deg, #4fa3ff, #7abaff);
+                    transition: width 0.4s ease;
+                }
+
+                /* File list container */
+                #fileListContainer {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 10px;
+                    margin-bottom: 16px;
+                }
+
+                /* File card */
+                .file-item {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    background: #ffffff;
+                    border-radius: 12px;
+                    padding: 10px 14px;
+                    border: 1px solid #e6e6e6;
+                    transition: all 0.2s ease;
+                }
+
+                .file-item:hover {
+                    box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+                }
+
+                /* Left section */
+                .file-left {
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                    min-width: 0;
+                }
+
+                /* File icon */
+                .file-type-icon {
+                    width: 36px;
+                    height: 36px;
+                    border-radius: 8px;
+                    background: #eef5ff;
+                    color: #4fa3ff;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 18px;
+                }
+
+                /* File meta */
+                .file-meta {
+                    display: flex;
+                    flex-direction: column;
+                    min-width: 0;
+                }
+
+                .file-name {
+                    font-size: 13px;
+                    font-weight: 600;
+                    color: #1e1e1e;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    max-width: 260px;
+                }
+
+                .file-size {
+                    font-size: 11px;
+                    color: #6b6b6b;
+                }
+
+                /* Remove button */
+                .remove-btn {
+                    background: transparent;
+                    border: none;
+                    color: #9b9b9b;
+                    cursor: pointer;
+                    padding: 6px;
+                    border-radius: 6px;
+                    transition: all 0.2s ease;
+                }
+
+                .remove-btn:hover {
+                    background: #ffecec;
+                    color: #d64545;
+                }
+
+            </style>
+            <div id="mainControls" class="upload-card">
+                <!-- Header -->
+                <div class="upload-header">
+                    <div class="upload-icon">📄</div>
+                    <div>
+                        <div class="upload-title">Upload Clinical Documents</div>
+                        <div class="upload-subtitle">
+                            Face-to-Face, Encounter Notes, Evaluations
+                        </div>
+                    </div>
+                </div>
+                <!-- Upload Zone -->
+                <div class="upload-zone" onclick="document.getElementById('fileInput').click()">
+                    <input
+                        type="file"
+                        id="fileInput"
+                        accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                        multiple
+                        hidden
+                        onchange="handleFileSelect(this)"
+                    >
+                    <div class="upload-zone-icon">⬆️</div>
+                    <div class="upload-zone-text">Click to upload or drag files here</div>
+                    <div class="upload-zone-hint">PDF, JPG, PNG, DOC, DOCX</div>
+                </div>
+                <!-- File List Header -->
+                <div id="fileSectionHeader" class="file-section-header">
+                    Uploaded Files (
+                    <span id="fileCount">0</span>
+                    )
+                </div>
+                <!-- File List -->
+                <div id="fileListContainer" class="file-list"></div>
+                <!-- Analyze Button -->
+                <button id="analyzeBtn" class="analyze-btn" onclick="startAnalysis()">
+                    Analyze Documents
+                </button>
+                <!-- Progress -->
+                <div id="progressWrapper" class="progress-wrapper">
+                    <div class="progress-label">
+                        <span id="progressText">Analyzing...</span>
+                        <span id="progressPercent">0%</span>
+                    </div>
+                    <div class="progress-container">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                </div>
+            </div>
+            <div id="status" class="status"></div>
+            <div id="resultArea">
+                <label>F2F Encounter Summary:</label>
+                <textarea id="f2fOutput" class="result-box" readonly></textarea>
+                <label>Final Audited Result (ICD-10 Compliant):</label>
+                <textarea id="jsonOutput" class="result-box" readonly></textarea>
+                <button id="saveBtn" class="save-btn" onclick="finalizeSave()">
+                    Save Data & Files to Salesforce
+                </button>
             </div>
         </div>
-    </div>
-
-    <div id="status" class="status"></div>
-
-    <div id="resultArea">
-        <label>F2F Encounter Summary:</label>
-        <textarea id="f2fOutput" class="result-box" readonly></textarea>
-
-        <label>Final Audited Result (ICD-10 Compliant):</label>
-        <textarea id="jsonOutput" class="result-box" readonly></textarea>
-        
-        <button id="saveBtn" class="save-btn" onclick="finalizeSave()">
-            Save Data & Files to Salesforce
-        </button>
-    </div>
-</div>
-
-<script>
+        <script>
 /* =========================================================
    GLOBAL CONTEXT
    ========================================================= */
@@ -376,8 +713,8 @@ function renderFileList() {
     const container = document.getElementById("fileListContainer");
     const header = document.getElementById("fileSectionHeader");
     const countSpan = document.getElementById("fileCount");
-    
-    container.innerHTML = ""; // Clear current view
+
+    container.innerHTML = "";
 
     if (selectedFiles.length === 0) {
         container.style.display = "none";
@@ -385,36 +722,47 @@ function renderFileList() {
         return;
     }
 
-    // Show Header and Container
     header.style.display = "block";
-    container.style.display = "block";
+    container.style.display = "flex";
     countSpan.innerText = selectedFiles.length;
 
-    // Generate Cards
     selectedFiles.forEach((file, index) => {
         const item = document.createElement("div");
         item.className = "file-item";
-        
-        // Trash Icon SVG
-        const trashIconSvg = `
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="3 6 5 6 21 6"></polyline>
-                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-            </svg>
-        `;
+
+        const sizeMB = (file.size / 1024 / 1024).toFixed(2);
 
         item.innerHTML = `
-            <div class="file-info">
-                <span class="file-icon">📄</span> 
-                <span class="file-name">${file.name}</span>
+            <div class="file-left">
+                <div class="file-type-icon">📄</div>
+
+                <div class="file-meta">
+                    <div class="file-name" title="${file.name}">
+                        ${file.name}
+                    </div>
+                    <div class="file-size">
+                        ${sizeMB} MB
+                    </div>
+                </div>
             </div>
-            <button class="remove-btn" onclick="removeFile(${index})" title="Remove File">
-                ${trashIconSvg}
+
+            <button class="remove-btn" onclick="removeFile(${index})" title="Remove file">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none"
+                    stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path>
+                    <path d="M10 11v6"></path>
+                    <path d="M14 11v6"></path>
+                    <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path>
+                </svg>
             </button>
         `;
+
         container.appendChild(item);
     });
 }
+
 
 /* =========================================================
    PROGRESS BAR HELPER
@@ -911,7 +1259,6 @@ function readFileAsBase64(file) {
         reader.readAsDataURL(file);
     });
 }
-</script>
-
-</body>
+        </script>
+    </body>
 </html>
