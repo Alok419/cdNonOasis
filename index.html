@@ -590,8 +590,18 @@
                     color: #d64545;
                 }
 
+                /* Disable entire upload area */
+                .upload-disabled {
+                    pointer-events: none;
+                    opacity: 0.45;
+                }
+
+                /* Optional: show loading cursor */
+                .upload-disabled * {
+                    cursor: wait !important;
+                }
             </style>
-            <div id="mainControls" class="upload-card" style="display:none">
+            <div id="mainControls" class="upload-card">
                 <!-- Header -->
                 <div class="upload-header">
                     <div class="upload-icon">📄</div>
@@ -651,6 +661,15 @@
             </div>
         </div>
         <script>
+
+            function disableUploadUI() {
+                document.getElementById("mainControls").classList.add("upload-disabled");
+            }
+
+            function enableUploadUI() {
+                document.getElementById("mainControls").classList.remove("upload-disabled");
+            }
+
 /* =========================================================
    GLOBAL CONTEXT
    ========================================================= */
@@ -809,6 +828,7 @@ async function startAnalysis() {
 
     try {
         analyzeBtn.disabled = true;
+        disableUploadUI();   // 🔒 LOCK upload + previews
         analyzeBtn.innerText = "Analyzing...";
         
         updateProgress(5, "Initializing Batch...");
@@ -854,11 +874,20 @@ async function startAnalysis() {
         resultArea.style.display = "block";
         
         updateProgress(100, "Complete");
+        // Hide upload section after completion
+        setTimeout(() => {
+            document.getElementById("mainControls").style.display = "none";
+        }, 500);
+        analyzeBtn.disabled = false;
+        enableUploadUI();   // 🔓 UNLOCK on success
+
         showStatus("✅ Analysis Complete.", false);
 
     } catch (error) {
         console.error(error);
         showStatus("❌ " + error.message, true);
+         analyzeBtn.disabled = false;
+        enableUploadUI();   // 🔓 UNLOCK on error
     } finally {
         analyzeBtn.disabled = false;
         analyzeBtn.innerText = "Analyze Files";
@@ -1262,4 +1291,3 @@ function readFileAsBase64(file) {
         </script>
     </body>
 </html>
-
