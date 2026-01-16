@@ -709,18 +709,26 @@ async function saveFilesToSalesforceRecord() {
 // --- 1. F2F SUMMARY ---
 async function callGeminiF2FSummary(fileDataArray) {
     const f2fPrompt = `
-You will receive uploaded clinical documents.
-Determine whether ANY file represents a clinical Face-to-Face (F2F) visit note, Encounter note, or Evaluation.
-If no such document exists, reply EXACTLY: "No F2F document found."
+You will receive multiple uploaded clinical documents.
+Your job is to carefully READ and UNDERSTAND all documents using full medical reasoning.
+
+Determine whether ANY file represents a clinical:
+- Face-to-Face (F2F) visit note, OR
+- Encounter note, OR
+- Evaluation/assessment visit documentation, OR
+- Any clinical document describing a direct meeting with the patient.
+
+Do NOT rely on keywords. Use your understanding of medical documentation structure, tone, content, and intent.
+If no such document exists, reply EXACTLY with: "No F2F document found."
 
 If such a document EXISTS:
-→ Provide a concise clinical summary UNDER 200 WORDS including:
-   - Reason for visit
-   - Key diagnoses
-   - Symptoms/findings
-   - Plan/Follow-up
+→ Provide a concise clinical summary UNDER 200 WORDS that includes:
+   - Reason for visit
+   - Key diagnoses or conditions mentioned
+   - Symptoms or significant findings
+   - Any plan, recommendations, or follow-up if mentioned
 
-Summarize ONLY what is written.
+Summarize ONLY what is written. Never fabricate or assume.
     `;
     const parts = [{ text: f2fPrompt }];
     fileDataArray.forEach(f => {
@@ -739,31 +747,129 @@ Summarize ONLY what is written.
 // --- 2. PT/OT EXTRACTION (NEW) ---
 async function callGeminiPtOtExtraction(fileDataArray) {
     const ptOtPrompt = `
-Role: Medical Data Encoder.
-Task: Extract functional assessment data from PT or OT documents.
+Role - You are an expert Medical Data Encoder.
 
-Value Mapping Rules (Strict):
-Convert text terms to numeric codes:
-- "Independent", "Safe", "Ind", "6" -> "6"
-- "Setup", "Cleanup", "Mod I", "5" -> "5"
-- "Supervision", "SBA", "Stand By Assist", "Touch", "CGA", "Min A", "Mod A", "Contact Guard" -> "4"
-- "Max Assist", "Total Assist", "Dependent", "Unable", "1", "2" -> "2"
-- "Not Attempted", "N/A" -> "NT"
+    Task -  Extract functional assessment data from the attached Physical Therapy (PT) or Occupational Therapy (OT) documents and map the values to a specific JSON structure using strict standardization rules.
 
-JSON Output Keys (Return ONLY valid JSON):
-{
-  "Discipline": "PT or OT or N/A",
-  "Eval_Date": "YYYY-MM-DD",
-  "Bed_Mobility": "Code (6,5,4,2,NT)",
-  "Transfers": "Code",
-  "Ambulation": "Code",
-  "Bathing": "Code",
-  "Dressing_Upper": "Code",
-  "Dressing_Lower": "Code",
-  "Toileting": "Code",
-  "Feeding": "Code"
-}
-If no PT/OT document is present, return empty JSON "{}".
+    1. Value Mapping Logic (Strict)
+
+    You must convert the raw text found in the document (e.g., "Min A", "04", "CGA") into the exact string values listed in the Target Output (Required Value) column below.
+    Use the Terms/Codes Found in Doc column to identify the correct match.
+
+    Functional Level    Terms / Codes Found in Doc  Target Output (Required Value)
+    6   06, Ind, Independent, I, Safe   "6"
+    5   05, Mod I, Modified Independent, MI, Setup/Cleanup  "5"
+    4   Walker/Cane used w/o assist, Assist with Device "4"
+    4   Sup, Supervision, ST    "4"
+    4   SBA, Stand By Assist, SC    "4"
+    4   CGA, Contact Guard Assist, Caregiver Assist, Required Assistance    "4"
+    3   03, Min A, Minimum Assist, PM, 25%  "3"
+    3   Mod A, Moderate Assist, 50% "3"
+    2   02, Max A, Max Assistance, SM, 75%  "2"
+    1   01, Dep, Dependent, Total Assist, >75%, Unable  "1"
+    NT  NT, N/A, Not Attempted, Not Tested  "NT"
+
+    Note:
+    If the document uses checkmarks, map the column header (e.g., MIN, MOD, MAX) to the corresponding Target Output.
+
+    2. Extraction Instructions
+
+    Determine Discipline
+    Identify whether the document is PT or OT and populate only the relevant fields.
+
+    Find Current Status
+    Extract the CURRENT status only.
+    Ignore values from Prior Level, Previous, or Goal columns.
+
+    Ambiguity Handling
+
+    If the value is PM, map to "3".
+
+    If the value is SM, map to "2" (unless explicitly labeled Moderate).
+
+    Null Handling
+
+    If a field is not found in the document, exclude it from the JSON or set it to null.
+
+    3. JSON Output Structure
+
+    Return only a valid JSON object using the keys below. Do NOT use markdown code blocks.
+
+    Occupational Therapy (OT) Fields
+
+    (Only populate these if analyzing an OT document)
+
+    Date_of_OT_Eval__c → Format: YYYY-MM-DD
+
+    GG_OT_Feeding__c → Look for Eating / Feeding
+
+    GG_OT_Oral_Hygiene__c → Look for Teeth / Dentures / Oral
+
+    GG_OT_Grooming__c → Look for Grooming / Hygiene
+
+    GG_OT_Toilet_Hygiene__c → Look for Toileting Hygiene / Clothing Management
+
+    GG_OT_Bathing__c → Look for Bathing / Washing Body
+
+    GG_OT_Upper_Body_Dressing__c → Look for Upper Body Dressing
+
+    GG_OT_Lower_Body_Dressing__c → Look for Lower Body Dressing
+
+    GG_OT_Sock_Shoes__c → Look for Footwear / Shoes / Socks
+
+    If combined with Lower Body Dressing, use that score.
+
+    GG_OT_Car_Van__c → Look for Car Transfer in OT section
+
+    GG_OT_Toilet_Transfer__c → Look for Toilet Transfer in OT section
+
+    Physical Therapy (PT) Fields
+
+    (Only populate these if analyzing a PT document)
+
+    GG_PT_Sit_Stand__c → Look for Sit to Stand transfer
+
+    GG_PT_Bed_Wheelchair__c → Look for Bed to Chair / Wheelchair transfer
+
+    GG_PT_Wheelchair_Bed__c → Look for Wheelchair to Bed transfer
+
+    If not distinct, use Bed_Wheelchair value.
+
+    GG_PT_Car_Van__c → Look for Car Transfer
+
+    GG_PT_Toilet_Transfer__c → Look for Toilet Transfer / Commode
+
+    GG_PT_Bathing__c → Look for Tub / Shower Transfer
+
+    GG_PT_Level_10_Feet__c → Look for Ambulation / Gait – 10 ft
+
+    GG_PT_Level_50_Feet__c → Look for Ambulation / Gait – 50 ft
+
+    GG_PT_Level_150_Feet__c → Look for Ambulation / Gait – 150 ft
+
+    GG_PT_Unlevel__c → Look for Uneven Surfaces
+
+    GG_PT_1_Step__c → Look for 1 Step / Curb
+
+    GG_PT_4_Steps__c → Look for 4 Steps
+
+    GG_PT_12_Steps__c → Look for 12 Steps / Full Flight
+
+    General Fields (All Documents)
+
+    Complete_PT_OT_Eval__c → Always set to "Yes"
+
+    Date_of_PT_OT_Eval__c → Date of evaluation (YYYY-MM-DD)
+
+    Bed_Mobility__c → Look for Rolling Left / Right
+
+    Transfer__c → Look for Supine to Sit / Sit to Supine
+
+    Gait__c → Look for general ambulation if distances are not listed
+
+    Wheelchair_Mobility__c → Look for Wheelchair use / propulsion
+
+    Other__c → Any other relevant functional notes, otherwise null
     `;
 
     const parts = [{ text: ptOtPrompt }];
@@ -786,22 +892,67 @@ If no PT/OT document is present, return empty JSON "{}".
 async function callGeminiVisionMulti(fileDataArray) {
     const extractionPrompt = `
 You are a clinical document extraction auditor.
-Extract diagnoses EXACTLY as written.
 
-STRICT OUTPUT FORMAT:
+You MUST perform a FULL scan of ALL uploaded files before generating any output.
+Treat ALL files as ONE combined patient chart.
+
+Your job:
+- Extract diagnoses EXACTLY as written
+- Identify potential primary diagnoses
+- Provide justification for each selected diagnosis
+- Specify the exact location (page, section, or line reference) where it was found
+
+====================================================
+PRIMARY DIAGNOSIS SELECTION RULES
+====================================================
+1. Identify diagnoses that are clinically primary based on:
+   - Reason for visit
+   - Acute presentation
+   - Major treatment focus
+   - Explicitly labeled primary diagnoses
+   - Repeated emphasis
+2. If the document explicitly labels "Primary Diagnosis", include it.
+3. If multiple diagnoses qualify, return ALL potential primary diagnoses.
+4. Do NOT assume anything. Use only the document text.
+
+====================================================
+DIAGNOSIS EXTRACTION RULES
+====================================================
+1. Extract ALL diagnoses exactly as written.
+2. If an ICD code is present next to a diagnosis, return it exactly.
+3. If no ICD code is found, return "".
+4. Remove duplicates.
+5. All diagnoses NOT classified as primary MUST appear under Secondary Diagnoses.
+6. For each diagnosis, return REASON & SOURCE in simple plain text.
+
+====================================================
+STRICT OUTPUT FORMAT (Return ONLY this text)
+====================================================
+
 SECTION 1: PATIENT DIAGNOSIS DETAILS
-Patient Name: <name>
-Age: <age>
+Patient Name: <name or NOT FOUND>
+Age: <age or NOT FOUND>
 
 Potential Primary Diagnoses:
-- Diagnosis: <dx>
-  ICD Code: <code>
-  Reason & Source: <text>
+- Diagnosis: <diagnosis>
+  ICD Code: <code>
+  Reason & Source:
+  <why selected>
+  <page/section/snippet found>
+(Repeat for each)
 
 Secondary Diagnoses:
-- Diagnosis: <dx>
-  ICD Code: <code>
-  Reason & Source: <text>
+- Diagnosis: <diagnosis>
+  ICD Code: <code>
+  Reason & Source:
+  <snippet or evidence>
+  <page/section found>
+(Repeat for each)
+
+You MUST read every line of every uploaded file.
+Missing any diagnosis is considered an audit failure.
+YOU MUST NOT summarize, assume, or fabricate any diagnosis.
+Every output must directly come from the uploaded files.
     `;
     const parts = [{ text: extractionPrompt }];
     fileDataArray.forEach(f => {
@@ -820,12 +971,239 @@ Secondary Diagnoses:
 // --- 4. AUDITOR ---
 async function callGeminiAuditor(extractedText) {
     const auditorSystemPrompt = `
-You are an ICD-10-CM Auditor.
-Validate the input diagnoses against official ICD-10 rules (Excludes1, Sequencing, Code First).
-Output strictly formatted JSON:
+You are an Expert ICD-10-CM Medical Coding Auditor and Compliance Officer.
+Your task is to perform a complete audit and produce a correct, conflict-free,
+clinically validated, mandatory-rule-compliant, properly sequenced ICD-10-CM
+diagnostic output.
+
+You have FOUR authoritative knowledge sources:
+1. File A — ICD-10-CM Excel Database (valid codes + official descriptions)
+2. File B — ICD-10-CM Tabular List PDF (Includes, Excludes1, Excludes2, Code First,
+   Use Additional Code, sequencing rules)
+3. File C — ICD-10 Potential Primary Diagnosis Codes
+   (Only these clinically valid codes can be potential primary.)
+4. File D — Coding Tip File
+   (Guidelines, overrides, use additional code, sequencing adjustments.)
+
+======================================================================
+STRICT RULE — POTENTIAL PRIMARY LOGIC
+======================================================================
+A diagnosis can be "potentialPrimary" ONLY IF:
+• It appears under “Potential Primary Diagnosis” in the input AND
+• The ICD exists in File C AND
+• Clinical Group (from File C) is NOT blank
+
+Otherwise → potentialPrimary MUST be false.
+
+potentialPrimary value MUST always be boolean (true or false).
+
+======================================================================
+GLOBAL RULE — EVERY CODE MUST BE CHECKED AGAINST ALL GUIDELINES
+======================================================================
+For EACH ICD code you output, YOU MUST:
+• Validate the ICD from File A (code + description)
+• Apply ALL applicable Tabular List rules from File B:
+  - Excludes1 → DROP conflicting codes
+  - Excludes2 → allow but handle correctly
+  - Code First → ensure parent condition appears before this code
+  - Use Additional Code → add the required secondary code
+• Apply Coding Tips from File D when relevant
+• Apply sequencing rules EXACTLY as mandated
+• Remove any ICD code that violates a rule or creates a contradiction
+
+EVERY RULE MUST BE APPLIED CODE BY CODE, NOT GLOBALLY.
+
+======================================================================
+IMPORTANT — ABOUT REASON & SOURCE
+======================================================================
+For each diagnosis in the input text:
+• Extract the exact "Reason & Source" block
+• The returned JSON must include reasonSource EXACTLY as provided
+• Keep reasonSource in simple plain text
+• Do NOT use single quotes or double quotes inside reasonSource
+
+If YOU add an ICD due to:
+• Code First rule
+• Use Additional Code rule
+• Coding Tip rule
+• Sequencing adjustment
+
+→ You MUST generate a NEW reasonSource explaining why the code was added.
+
+NO ICD should be returned without a reasonSource.
+
+======================================================================
+FINAL OUTPUT FORMAT (STRICT JSON — DO NOT CHANGE FIELD NAMES)
+======================================================================
+
 [
-  { "code": "ICD", "reasonSource": "Text", "potentialPrimary": true/false }
+  {
+    "code": "<ICD from File A>",
+    "reasonSource": "<Original text OR rule-based explanation in simple plain text>",
+    "potentialPrimary": true or false
+  }
 ]
+
+======================================================================
+PROCESS STEPS YOU MUST FOLLOW
+======================================================================
+
+STEP 1 — Normalize & Validate Diagnoses
+• Extract all diagnoses and ICD codes
+• Validate each ICD using File A
+• Assign correct ICD where missing
+• DROP invalid, incomplete, or conflicting ICDs
+• Ensure potentialPrimary is always true or false
+• If undeterminable → default to false
+
+STEP 2 — Apply Potential Primary Validation
+
+STEP 3 — Apply Excludes1 (DROP conflicting codes)
+
+STEP 4 — Apply Excludes2 rules if relevant
+
+STEP 5 — Apply Coding Tips from File D (MANDATORY for each code)
+
+STEP 6 — Apply CODE FIRST rules (insert required parent ICDs)
+
+STEP 7 — Apply USE ADDITIONAL CODE rules (insert required secondary ICDs)
+
+STEP 8 — Final compliance validation, sequencing correction,
+          and conflict removal
+
+======================================================================
+INPUT DIAGNOSES TO AUDIT:
+======================================================================
+
+<medicalExtractText>
+
+    `;
+
+    const parts = [{ text: extractionPrompt }];
+    fileDataArray.forEach(f => {
+        parts.push({
+            inlineData: { mimeType: f.mimeType, data: f.base64 }
+        });
+    });
+
+    const response = await fetch(`${GEMINI_VISION_ENDPOINT}?key=${GEMINI_API_KEY}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contents: [{ parts: parts }] })
+    });
+
+    if (!response.ok) throw new Error("Vision Step Failed");
+    const data = await response.json();
+    return data.candidates[0].content.parts[0].text;
+}
+
+async function callGeminiAuditor(extractedText) {
+    const auditorSystemPrompt = `
+You are an Expert ICD-10-CM Medical Coding Auditor and Compliance Officer.
+Your task is to perform a complete audit and produce a correct, conflict-free,
+clinically validated, mandatory-rule-compliant, properly sequenced ICD-10-CM
+diagnostic output.
+
+You have FOUR authoritative knowledge sources:
+1. File A — ICD-10-CM Excel Database (valid codes + official descriptions)
+2. File B — ICD-10-CM Tabular List PDF (Includes, Excludes1, Excludes2, Code First,
+   Use Additional Code, sequencing rules)
+3. File C — ICD-10 Potential Primary Diagnosis Codes
+   (Only these clinically valid codes can be potential primary.)
+4. File D — Coding Tip File
+   (Guidelines, overrides, use additional code, sequencing adjustments.)
+
+======================================================================
+STRICT RULE — POTENTIAL PRIMARY LOGIC
+======================================================================
+A diagnosis can be "potentialPrimary" ONLY IF:
+• It appears under “Potential Primary Diagnosis” in the input AND
+• The ICD exists in File C AND
+• Clinical Group (from File C) is NOT blank
+
+Otherwise → potentialPrimary MUST be false.
+
+potentialPrimary value MUST always be boolean (true or false).
+
+======================================================================
+GLOBAL RULE — EVERY CODE MUST BE CHECKED AGAINST ALL GUIDELINES
+======================================================================
+For EACH ICD code you output, YOU MUST:
+• Validate the ICD from File A (code + description)
+• Apply ALL applicable Tabular List rules from File B:
+  - Excludes1 → DROP conflicting codes
+  - Excludes2 → allow but handle correctly
+  - Code First → ensure parent condition appears before this code
+  - Use Additional Code → add the required secondary code
+• Apply Coding Tips from File D when relevant
+• Apply sequencing rules EXACTLY as mandated
+• Remove any ICD code that violates a rule or creates a contradiction
+
+EVERY RULE MUST BE APPLIED CODE BY CODE, NOT GLOBALLY.
+
+======================================================================
+IMPORTANT — ABOUT REASON & SOURCE
+======================================================================
+For each diagnosis in the input text:
+• Extract the exact "Reason & Source" block
+• The returned JSON must include reasonSource EXACTLY as provided
+• Keep reasonSource in simple plain text
+• Do NOT use single quotes or double quotes inside reasonSource
+
+If YOU add an ICD due to:
+• Code First rule
+• Use Additional Code rule
+• Coding Tip rule
+• Sequencing adjustment
+
+→ You MUST generate a NEW reasonSource explaining why the code was added.
+
+NO ICD should be returned without a reasonSource.
+
+======================================================================
+FINAL OUTPUT FORMAT (STRICT JSON — DO NOT CHANGE FIELD NAMES)
+======================================================================
+
+[
+  {
+    "code": "<ICD from File A>",
+    "reasonSource": "<Original text OR rule-based explanation in simple plain text>",
+    "potentialPrimary": true or false
+  }
+]
+
+======================================================================
+PROCESS STEPS YOU MUST FOLLOW
+======================================================================
+
+STEP 1 — Normalize & Validate Diagnoses
+• Extract all diagnoses and ICD codes
+• Validate each ICD using File A
+• Assign correct ICD where missing
+• DROP invalid, incomplete, or conflicting ICDs
+• Ensure potentialPrimary is always true or false
+• If undeterminable → default to false
+
+STEP 2 — Apply Potential Primary Validation
+
+STEP 3 — Apply Excludes1 (DROP conflicting codes)
+
+STEP 4 — Apply Excludes2 rules if relevant
+
+STEP 5 — Apply Coding Tips from File D (MANDATORY for each code)
+
+STEP 6 — Apply CODE FIRST rules (insert required parent ICDs)
+
+STEP 7 — Apply USE ADDITIONAL CODE rules (insert required secondary ICDs)
+
+STEP 8 — Final compliance validation, sequencing correction,
+          and conflict removal
+
+======================================================================
+INPUT DIAGNOSES TO AUDIT:
+======================================================================
+
+<medicalExtractText>
     `;
     const userPrompt = `INPUT:\n${extractedText}`;
     let toolsConfig = [];
@@ -870,4 +1248,5 @@ function readFileAsBase64(file) {
         </script>
     </body>
 </html>
+
 
