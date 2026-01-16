@@ -2,7 +2,7 @@
 <html lang="en">
     <head>
         <meta charset="UTF-8">
-        <title>AI OASIS Analyzer</title>
+        <title>AI Non-OASIS Analyzer (Unified)</title>
         <style>
     /* --- GLOBAL LAYOUT (Dark Theme) --- */
     body {
@@ -18,7 +18,7 @@
     }
 
     .card {
-        width: 600px;
+        width: 650px; /* Slightly wider to accommodate more data */
         background: #081821;
         border-radius: 14px;
         padding: 28px;
@@ -28,145 +28,179 @@
         border: 1px solid #1f3a4d;
     }
 
-    h2 {
-        margin-top: 0;
-        margin-bottom: 8px;
+    /* --- UPLOAD CARD STYLES --- */
+    .upload-card {
+        background: linear-gradient(180deg, #0c2230, #081821);
+        border: 1px solid #1f3a4d;
+        border-radius: 14px;
+        padding: 22px;
+    }
+
+    .upload-header {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 18px;
+    }
+
+    .upload-icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 10px;
+        background: rgba(79,163,255,0.15);
+        color: #7abaff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 22px;
+    }
+
+    .upload-title {
+        font-size: 15px;
         font-weight: 600;
-        text-align: center;
-        letter-spacing: 0.5px;
-        color: #e0e0e0;
+        color: #e4f1ff;
     }
 
-    p {
-        font-size: 14px;
-        opacity: 0.7;
-        text-align: center;
-        margin-bottom: 25px;
-        color: #8daac2;
+    .upload-subtitle {
+        font-size: 12px;
+        color: #9bb9d4;
     }
 
-    /* --- FILE INPUT --- */
-    input[type="file"] {
-        width: 100%;
-        padding: 12px;
-        border-radius: 8px;
-        border: 1px dashed #4fa3ff;
+    /* --- UPLOAD ZONE --- */
+    .upload-zone {
+        border: 2px dashed #355a74;
+        border-radius: 12px;
+        padding: 26px;
+        text-align: center;
         background: #06141c;
-        color: #fff;
         cursor: pointer;
-        box-sizing: border-box;
-        margin-bottom: 20px;
-        transition: border-color 0.3s;
-    }
-    input[type="file"]:hover {
-        border-color: #7abaff;
+        transition: all 0.25s ease;
+        margin-bottom: 16px;
     }
 
-    /* --- FILE LIST DESIGN --- */
+    .upload-zone:hover {
+        border-color: #7abaff;
+        background: #081d2a;
+    }
+
+    .upload-zone-icon {
+        font-size: 30px;
+        color: #7abaff;
+        margin-bottom: 6px;
+    }
+
+    .upload-zone-text {
+        font-size: 13px;
+        font-weight: 600;
+        color: #d6eaff;
+    }
+
+    /* --- FILE LIST --- */
     .file-section-header {
-        font-size: 14px;
-        color: #4fa3ff;
-        font-weight: 700;
+        font-size: 13px;
+        font-weight: 600;
+        color: #cfe7ff;
         margin-bottom: 10px;
         display: none;
     }
 
-    #fileListContainer {
-        display: none;
-        margin-bottom: 25px;
-        background: transparent;
+    .file-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-bottom: 16px;
     }
 
     .file-item {
-        background: #ffffff;
-        border: 1px solid #d8dde6;
-        border-radius: 4px;
-        padding: 10px 15px;
-        margin-bottom: 8px;
         display: flex;
+        align-items: center;
         justify-content: space-between;
-        align-items: center;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-        animation: slideIn 0.3s ease;
+        background: #ffffff;
+        border-radius: 12px;
+        padding: 10px 14px;
+        border: 1px solid #e6e6e6;
+        transition: all 0.2s ease;
     }
 
-    @keyframes slideIn {
-        from { opacity: 0; transform: translateY(-5px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
-
-    .file-info {
+    .file-left {
         display: flex;
         align-items: center;
-        gap: 10px;
-        color: #16325c;
-        font-size: 13px;
-        font-weight: 500;
-        overflow: hidden;
+        gap: 12px;
+        min-width: 0;
     }
 
-    .file-icon {
-        color: #706e6b;
-        font-size: 16px;
-    }
-
-    .file-name {
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        max-width: 350px;
-    }
-
-    /* Trash Button Style */
-    .remove-btn {
-        background: #ffffff;
-        border: 1px solid #dddbda;
-        border-radius: 4px;
-        width: 32px;
-        height: 32px;
+    .file-type-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        background: #eef5ff;
+        color: #4fa3ff;
         display: flex;
         align-items: center;
         justify-content: center;
+        font-size: 18px;
+    }
+
+    .file-meta {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+    }
+
+    .file-name {
+        font-size: 13px;
+        font-weight: 600;
+        color: #1e1e1e;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 260px;
+    }
+
+    .file-size {
+        font-size: 11px;
+        color: #6b6b6b;
+    }
+
+    .remove-btn {
+        background: transparent;
+        border: none;
+        color: #9b9b9b;
         cursor: pointer;
-        color: #706e6b;
-        transition: all 0.2s;
+        padding: 6px;
+        border-radius: 6px;
+        transition: all 0.2s ease;
     }
 
     .remove-btn:hover {
-        border-color: #005fb2;
-        color: #005fb2;
-        background: #f4f6f9;
+        background: #ffecec;
+        color: #d64545;
     }
 
-    /* --- ANALYZE BUTTON --- */
-    .action-row {
-        text-align: center;
-        margin-top: 20px;
-    }
-
-    button.analyze-btn {
-        background: #0176d3;
-        color: white;
+    /* --- BUTTONS --- */
+    .analyze-btn {
+        width: 100%;
+        padding: 13px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #4fa3ff, #7abaff);
         border: none;
-        padding: 10px 24px;
         font-size: 14px;
         font-weight: 600;
-        border-radius: 4px;
+        color: #04121a;
         cursor: pointer;
-        transition: background 0.2s;
-        min-width: 120px;
+        transition: all 0.25s ease;
     }
 
-    button.analyze-btn:hover {
-        background: #014486;
+    .analyze-btn:not(:disabled):hover {
+        transform: translateY(-1px);
+        box-shadow: 0 12px 30px rgba(79,163,255,0.35);
     }
 
-    button.analyze-btn:disabled {
-        background: #c9c7c5;
+    .analyze-btn:disabled {
+        background: #6b6b6b;
+        color: #d1d1d1;
         cursor: not-allowed;
     }
 
-    /* --- RESULTS & PROGRESS --- */
     .save-btn {
         width: 100%;
         padding: 12px;
@@ -180,9 +214,37 @@
     }
 
     .save-btn:disabled {
-        background: #7f8c8d; /* Greyed out */
+        background: #7f8c8d;
         color: #fff;
         cursor: not-allowed;
+    }
+
+    /* --- PROGRESS --- */
+    .progress-wrapper {
+        display: none;
+        margin-top: 18px;
+    }
+
+    .progress-label {
+        display: flex;
+        justify-content: space-between;
+        font-size: 12px;
+        color: #9bb9d4;
+        margin-bottom: 6px;
+    }
+
+    .progress-container {
+        background: #102a3a;
+        border-radius: 10px;
+        height: 10px;
+        overflow: hidden;
+    }
+
+    .progress-fill {
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(90deg, #4fa3ff, #7abaff);
+        transition: width 0.4s ease;
     }
 
     .status {
@@ -194,34 +256,7 @@
     .success { color: #4cff9f; }
     .error { color: #ff7a7a; }
 
-    /* Progress Bar */
-    #progressWrapper {
-        display: none;
-        margin-top: 20px;
-        width: 100%;
-    }
-    .progress-container {
-        width: 100%;
-        height: 8px;
-        background-color: #0f2735;
-        border-radius: 4px;
-        overflow: hidden;
-        margin-top: 5px;
-    }
-    .progress-fill {
-        height: 100%;
-        width: 0%;
-        background: linear-gradient(90deg, #4fa3ff, #00d2ff);
-        transition: width 0.4s ease;
-    }
-    .progress-label {
-        font-size: 12px;
-        color: #4fa3ff;
-        display: flex;
-        justify-content: space-between;
-    }
-
-    /* Results */
+    /* --- RESULTS --- */
     #resultArea {
         display: none;
         margin-top: 25px;
@@ -229,7 +264,6 @@
         padding-top: 20px;
     }
     
-    /* Shared textarea style */
     .result-box {
         width: 100%;
         background: #050e13;
@@ -244,8 +278,9 @@
         margin-bottom: 15px;
     }
 
-    textarea#jsonOutput { height: 200px; }
-    textarea#f2fOutput { height: 100px; color: #ffc107; } /* Different color for F2F */
+    textarea#jsonOutput { height: 180px; }
+    textarea#f2fOutput { height: 80px; color: #ffc107; } 
+    textarea#ptotOutput { height: 150px; color: #64d2ff; } /* Blue tint for Therapy */
 
     label {
         font-size: 12px;
@@ -255,364 +290,35 @@
         font-weight: 600;
         text-transform: uppercase;
     }
+
+    .upload-disabled {
+        pointer-events: none;
+        opacity: 0.45;
+    }
+    .upload-disabled * {
+        cursor: wait !important;
+    }
         </style>
     </head>
     <body>
         <div class="card">
-            <h2>AI Non - OASIS Analyzer</h2>
-            <p>Extraction, ICD-10 Compliance & F2F Summary</p>
+            <h2 style="margin-top:0; margin-bottom:8px; font-weight:600; text-align:center; color:#e0e0e0;">AI Unified Clinical Analyzer</h2>
+            <p style="font-size:14px; opacity:0.7; text-align:center; margin-bottom:25px; color:#8daac2;">Diagnosis, F2F Summary & Therapy Assessments</p>
+            
             <div id="loadingMessage" style="text-align:center; color:#4fa3ff; margin-bottom:15px; font-weight:500;">
                 Connecting to Salesforce...
             </div>
-            <!-- <div id="mainControls" style="display:none;">
-        
-                    <label>Select Documents:</label>
-                    <input type="file" id="fileInput" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" multiple onchange="handleFileSelect(this)" />
-                    
-                    <div id="fileSectionHeader" class="file-section-header">
-                        Uploaded Files (<span id="fileCount">0</span>)
-                    </div>
-
-                    <div id="fileListContainer">
-                    </div>
-
-                    <div class="action-row">
-                        <button id="analyzeBtn" class="analyze-btn" onclick="startAnalysis()">
-                            Analyze Files
-                        </button>
-                    </div>
-
-                    <div id="progressWrapper">
-                        <div class="progress-label">
-                            <span id="progressText">Initializing...</span>
-                            <span id="progressPercent">0%</span>
-                        </div>
-                        <div class="progress-container">
-                            <div class="progress-fill" id="progressFill"></div>
-                        </div>
-                    </div>
-                </div> -->
-            <style>
-                    /* ================= Upload Card ================= */
-                .upload-card {
-                    background: linear-gradient(180deg, #0c2230, #081821);
-                    border: 1px solid #1f3a4d;
-                    border-radius: 14px;
-                    padding: 22px;
-                }
-
-                /* Header */
-                .upload-header {
-                    display: flex;
-                    gap: 12px;
-                    margin-bottom: 18px;
-                }
-
-                .upload-icon {
-                    width: 44px;
-                    height: 44px;
-                    border-radius: 10px;
-                    background: rgba(79,163,255,0.15);
-                    color: #7abaff;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    font-size: 22px;
-                }
-
-                .upload-title {
-                    font-size: 15px;
-                    font-weight: 600;
-                    color: #e4f1ff;
-                }
-
-                .upload-subtitle {
-                    font-size: 12px;
-                    color: #9bb9d4;
-                }
-
-                /* Upload Zone */
-                .upload-zone {
-                    border: 2px dashed #355a74;
-                    border-radius: 12px;
-                    padding: 26px;
-                    text-align: center;
-                    background: #06141c;
-                    cursor: pointer;
-                    transition: all 0.25s ease;
-                    margin-bottom: 16px;
-                }
-
-                .upload-zone:hover {
-                    border-color: #7abaff;
-                    background: #081d2a;
-                }
-
-                .upload-zone-icon {
-                    font-size: 30px;
-                    color: #7abaff;
-                    margin-bottom: 6px;
-                }
-
-                .upload-zone-text {
-                    font-size: 13px;
-                    font-weight: 600;
-                    color: #d6eaff;
-                }
-
-                .upload-zone-hint {
-                    font-size: 11px;
-                    color: #8fbce6;
-                    margin-top: 4px;
-                }
-
-                /* File Section Header */
-                .file-section-header {
-                    font-size: 13px;
-                    font-weight: 600;
-                    color: #cfe7ff;
-                    margin-bottom: 10px;
-                    display: none;
-                }
-
-                /* File List */
-                .file-list {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 10px;
-                    margin-bottom: 16px;
-                }
-
-                /* Individual File Item */
-                .file-item {
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                    background: #ffffff;
-                    border-radius: 12px;
-                    padding: 10px 14px;
-                    border: 1px solid #e6e6e6;
-                    transition: all 0.2s ease;
-                }
-
-                .file-item:hover {
-                    box-shadow: 0 6px 18px rgba(0,0,0,0.08);
-                }
-
-                .file-left {
-                    display: flex;
-                    align-items: center;
-                    gap: 12px;
-                    min-width: 0;
-                }
-
-                .file-type-icon {
-                    width: 36px;
-                    height: 36px;
-                    border-radius: 8px;
-                    background: #eef5ff;
-                    color: #4fa3ff;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    font-size: 18px;
-                }
-
-                .file-meta {
-                    display: flex;
-                    flex-direction: column;
-                    min-width: 0;
-                }
-
-                .file-name {
-                    font-size: 13px;
-                    font-weight: 600;
-                    color: #1e1e1e;
-                    white-space: nowrap;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
-                    max-width: 260px;
-                }
-
-                .file-size {
-                    font-size: 11px;
-                    color: #6b6b6b;
-                }
-
-                /* Remove Button */
-                .remove-btn {
-                    background: transparent;
-                    border: none;
-                    color: #9b9b9b;
-                    cursor: pointer;
-                    padding: 6px;
-                    border-radius: 6px;
-                    transition: all 0.2s ease;
-                }
-
-                .remove-btn:hover {
-                    background: #ffecec;
-                    color: #d64545;
-                }
-
-                /* Analyze Button */
-                .analyze-btn {
-                    width: 100%;
-                    padding: 13px;
-                    border-radius: 10px;
-                    background: linear-gradient(135deg, #4fa3ff, #7abaff);
-                    border: none;
-                    font-size: 14px;
-                    font-weight: 600;
-                    color: #04121a;
-                    cursor: pointer;
-                    transition: all 0.25s ease;
-                }
-
-                .analyze-btn:not(:disabled):hover {
-                    transform: translateY(-1px);
-                    box-shadow: 0 12px 30px rgba(79,163,255,0.35);
-                }
-
-                .analyze-btn:disabled {
-                    background: #6b6b6b;
-                    color: #d1d1d1;
-                }
-
-                /* Progress */
-                .progress-wrapper {
-                    display: none;
-                    margin-top: 18px;
-                }
-
-                .progress-label {
-                    display: flex;
-                    justify-content: space-between;
-                    font-size: 12px;
-                    color: #9bb9d4;
-                    margin-bottom: 6px;
-                }
-
-                .progress-container {
-                    background: #102a3a;
-                    border-radius: 10px;
-                    height: 10px;
-                    overflow: hidden;
-                }
-
-                .progress-fill {
-                    height: 100%;
-                    width: 0%;
-                    background: linear-gradient(90deg, #4fa3ff, #7abaff);
-                    transition: width 0.4s ease;
-                }
-
-                /* File list container */
-                #fileListContainer {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 10px;
-                    margin-bottom: 16px;
-                }
-
-                /* File card */
-                .file-item {
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                    background: #ffffff;
-                    border-radius: 12px;
-                    padding: 10px 14px;
-                    border: 1px solid #e6e6e6;
-                    transition: all 0.2s ease;
-                }
-
-                .file-item:hover {
-                    box-shadow: 0 6px 18px rgba(0,0,0,0.08);
-                }
-
-                /* Left section */
-                .file-left {
-                    display: flex;
-                    align-items: center;
-                    gap: 12px;
-                    min-width: 0;
-                }
-
-                /* File icon */
-                .file-type-icon {
-                    width: 36px;
-                    height: 36px;
-                    border-radius: 8px;
-                    background: #eef5ff;
-                    color: #4fa3ff;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    font-size: 18px;
-                }
-
-                /* File meta */
-                .file-meta {
-                    display: flex;
-                    flex-direction: column;
-                    min-width: 0;
-                }
-
-                .file-name {
-                    font-size: 13px;
-                    font-weight: 600;
-                    color: #1e1e1e;
-                    white-space: nowrap;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
-                    max-width: 260px;
-                }
-
-                .file-size {
-                    font-size: 11px;
-                    color: #6b6b6b;
-                }
-
-                /* Remove button */
-                .remove-btn {
-                    background: transparent;
-                    border: none;
-                    color: #9b9b9b;
-                    cursor: pointer;
-                    padding: 6px;
-                    border-radius: 6px;
-                    transition: all 0.2s ease;
-                }
-
-                .remove-btn:hover {
-                    background: #ffecec;
-                    color: #d64545;
-                }
-
-                /* Disable entire upload area */
-                .upload-disabled {
-                    pointer-events: none;
-                    opacity: 0.45;
-                }
-
-                /* Optional: show loading cursor */
-                .upload-disabled * {
-                    cursor: wait !important;
-                }
-            </style>
+            
             <div id="mainControls" class="upload-card" style="display:none;">
-                <!-- Header -->
                 <div class="upload-header">
                     <div class="upload-icon">📄</div>
                     <div>
                         <div class="upload-title">Upload Clinical Documents</div>
                         <div class="upload-subtitle">
-                            Face-to-Face, Encounter Notes, Evaluations
+                            PT/OT Evals, Face-to-Face, Encounter Notes
                         </div>
                     </div>
                 </div>
-                <!-- Upload Zone -->
                 <div class="upload-zone" onclick="document.getElementById('fileInput').click()">
                     <input
                         type="file"
@@ -624,22 +330,18 @@
                     >
                     <div class="upload-zone-icon">⬆️</div>
                     <div class="upload-zone-text">Click to upload or drag files here</div>
-                    <!-- <div class="upload-zone-hint">PDF, JPG, PNG, DOC, DOCX</div> -->
                 </div>
-                <!-- File List Header -->
                 <div id="fileSectionHeader" class="file-section-header">
                     Uploaded Files (
                     <span id="fileCount">0</span>
                     )
                 </div>
-                <!-- File List -->
                 <div id="fileListContainer" class="file-list"></div>
-                <!-- Analyze Button -->
                 <button id="analyzeBtn" class="analyze-btn" onclick="startAnalysis()">
                     Analyze Documents
                 </button>
             </div>
-            <!-- Progress -->
+
             <div id="progressWrapper" class="progress-wrapper">
                 <div class="progress-label">
                     <span id="progressText">Analyzing...</span>
@@ -649,23 +351,25 @@
                     <div class="progress-fill" id="progressFill"></div>
                 </div>
             </div>
+
             <div id="status" class="status"></div>
+
             <div id="resultArea">
-                <div style="display:none">
-                    <label>F2F Encounter Summary:</label>
-                    <textarea id="f2fOutput" class="result-box" readonly></textarea>
-                    <label>Final Audited Result (ICD-10 Compliant):</label>
-                    <textarea id="jsonOutput" class="result-box" readonly></textarea>
-                </div>
-                <!-- <label>F2F Encounter Summary:</label>
-                <textarea id="f2fOutput" class="result-box" readonly></textarea>
+                <label>F2F Encounter Summary:</label>
+                <textarea id="f2fOutput" class="result-box" readonly placeholder="F2F Summary will appear here..."></textarea>
+                
+                <label>Therapy (PT/OT) Functional Assessment:</label>
+                <textarea id="ptotOutput" class="result-box" readonly placeholder="PT/OT Functional scores will appear here..."></textarea>
+
                 <label>Final Audited Result (ICD-10 Compliant):</label>
-                <textarea id="jsonOutput" class="result-box" readonly></textarea> -->
+                <textarea id="jsonOutput" class="result-box" readonly placeholder="ICD-10 Audit will appear here..."></textarea>
+                
                 <button id="saveBtn" class="save-btn" onclick="finalizeSave()">
-                    Save Data & Files
+                    Save All Data & Files
                 </button>
             </div>
         </div>
+
         <script>
 
             function disableUploadUI() {
@@ -690,8 +394,8 @@ let CACHED_AI_TIME = 0;
 // Array to store actual File objects
 let selectedFiles = [];
 
-const GEMINI_VISION_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent"; 
-const GEMINI_RAG_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent"; 
+const GEMINI_VISION_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-previewgenerateContent"; 
+const GEMINI_RAG_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent"; 
 
 /* =========================================================
    SALESFORCE CONNECTION
@@ -718,13 +422,10 @@ window.addEventListener("message", (event) => {
 
 function handleFileSelect(inputElement) {
     if (inputElement.files && inputElement.files.length > 0) {
-        // Append new files to existing list
         for (let i = 0; i < inputElement.files.length; i++) {
             selectedFiles.push(inputElement.files[i]);
         }
         renderFileList();
-        
-        // Reset input value so same file can be selected again if user wants
         inputElement.value = ""; 
     }
 }
@@ -754,40 +455,20 @@ function renderFileList() {
     selectedFiles.forEach((file, index) => {
         const item = document.createElement("div");
         item.className = "file-item";
-
         const sizeMB = (file.size / 1024 / 1024).toFixed(2);
-
         item.innerHTML = `
             <div class="file-left">
                 <div class="file-type-icon">📄</div>
-
                 <div class="file-meta">
-                    <div class="file-name" title="${file.name}">
-                        ${file.name}
-                    </div>
-                    <div class="file-size">
-                        ${sizeMB} MB
-                    </div>
+                    <div class="file-name" title="${file.name}">${file.name}</div>
+                    <div class="file-size">${sizeMB} MB</div>
                 </div>
             </div>
-
-            <button class="remove-btn" onclick="removeFile(${index})" title="Remove file">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none"
-                    stroke="currentColor" stroke-width="2"
-                    stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="3 6 5 6 21 6"></polyline>
-                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path>
-                    <path d="M10 11v6"></path>
-                    <path d="M14 11v6"></path>
-                    <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path>
-                </svg>
-            </button>
+            <button class="remove-btn" onclick="removeFile(${index})" title="Remove">✖</button>
         `;
-
         container.appendChild(item);
     });
 }
-
 
 /* =========================================================
    PROGRESS BAR HELPER
@@ -810,7 +491,6 @@ let progressValue = 1;
 
 function startAutoProgress(target = 90, speed = 120) {
     clearInterval(progressTimer);
-
     progressTimer = setInterval(() => {
         if (progressValue < target) {
             progressValue++;
@@ -827,7 +507,6 @@ function stopAutoProgress(finalValue = 100, text = "Complete") {
     updateProgress(progressValue, text);
 }
 
-
 /* =========================================================
    MAIN ANALYSIS LOGIC
    ========================================================= */
@@ -837,11 +516,13 @@ async function startAnalysis() {
     const resultArea = document.getElementById("resultArea");
     const jsonOutput = document.getElementById("jsonOutput");
     const f2fOutput = document.getElementById("f2fOutput");
+    const ptotOutput = document.getElementById("ptotOutput");
     
     // UI Reset
     resultArea.style.display = "none";
     jsonOutput.value = "";
     f2fOutput.value = "";
+    ptotOutput.value = "";
     showStatus(""); 
     
     // Validations
@@ -859,7 +540,6 @@ async function startAnalysis() {
         disableUploadUI();
         analyzeBtn.innerText = "Analyzing...";
 
-        // 🔵 Start progress from 1 → 90
         progressValue = 1;
         updateProgress(1, "Initializing Batch...");
         startAutoProgress(90, 120);
@@ -867,39 +547,48 @@ async function startAnalysis() {
         const startTime = Date.now();
 
         // --- STEP 1: READ FILES ---
-        updateProgress(progressValue, `Processing ${selectedFiles.length} file(s)...`);
+        updateProgress(progressValue, `Reading ${selectedFiles.length} file(s)...`);
         const fileDataArray = await Promise.all(
             selectedFiles.map(file => readFileAsBase64(file))
         );
 
-        // --- STEP 2: PARALLEL AI EXECUTION ---
-        updateProgress(progressValue, "AI Vision & F2F Analysis Running...");
-        const [rawExtraction, f2fSummaryText] = await Promise.all([
-            callGeminiVisionMulti(fileDataArray),
-            callGeminiF2FSummary(fileDataArray)
+        // --- STEP 2: PARALLEL AI EXECUTION (Diagnoses, F2F, PT/OT) ---
+        updateProgress(progressValue, "Scanning for Diagnoses, F2F, and Therapy Data...");
+        
+        const [rawExtraction, f2fSummaryText, ptotJsonText] = await Promise.all([
+            callGeminiVisionMulti(fileDataArray),    // Diagnosis Extraction
+            callGeminiF2FSummary(fileDataArray),     // F2F Summary
+            callGeminiPtOtExtraction(fileDataArray)  // NEW: PT/OT Extraction
         ]);
 
-        // --- STEP 3: AUDIT ---
+        // --- STEP 3: AUDIT DIAGNOSES ---
         updateProgress(progressValue, "AI Auditor: Validating ICD-10 Rules...");
         const finalAuditJson = await callGeminiAuditor(rawExtraction);
 
         CACHED_AI_TIME = Math.floor((Date.now() - startTime) / 1000);
 
-        // --- STEP 4: DISPLAY ---
+        // --- STEP 4: DISPLAY RESULTS ---
+        
+        // Format Diagnosis JSON
         let prettyJson = finalAuditJson;
         try {
-            const cleanJson = finalAuditJson
-                .replace(/```json/g, "")
-                .replace(/```/g, "")
-                .trim();
+            const cleanJson = finalAuditJson.replace(/```json/g, "").replace(/```/g, "").trim();
             prettyJson = JSON.stringify(JSON.parse(cleanJson), null, 4);
+        } catch {}
+
+        // Format PT/OT JSON
+        let prettyPtOt = ptotJsonText;
+        try {
+            const cleanPtOt = ptotJsonText.replace(/```json/g, "").replace(/```/g, "").trim();
+            prettyPtOt = JSON.stringify(JSON.parse(cleanPtOt), null, 4);
         } catch {}
 
         jsonOutput.value = prettyJson;
         f2fOutput.value = f2fSummaryText;
+        ptotOutput.value = prettyPtOt; // Display PT/OT result
+        
         resultArea.style.display = "block";
 
-        // ✅ Finish progress
         stopAutoProgress(100, "Complete");
 
         setTimeout(() => {
@@ -918,27 +607,27 @@ async function startAnalysis() {
         analyzeBtn.innerText = "Analyze Files";
         enableUploadUI();
     }
-
 }
 
 /* =========================================================
-   SAVE LOGIC (JSON + F2F + FILES)
+   SAVE LOGIC (Unified)
    ========================================================= */
 
 async function finalizeSave() {
     const saveBtn = document.getElementById("saveBtn");
     const jsonOutput = document.getElementById("jsonOutput");
     const f2fOutput = document.getElementById("f2fOutput");
+    const ptotOutput = document.getElementById("ptotOutput");
     
     try {
         saveBtn.disabled = true;
         
-        // --- PART 1: SAVE JSON DATA & F2F VIA APEX ---
+        // --- PART 1: SAVE DATA VIA APEX ---
         saveBtn.innerText = "Saving Data...";
-        // We pass the F2F summary text along with the JSON
-        await sendToSalesforce(jsonOutput.value, f2fOutput.value, CACHED_AI_TIME);
+        // We pass ALL data (Diagnoses, F2F, and PT/OT)
+        await sendToSalesforce(jsonOutput.value, f2fOutput.value, ptotOutput.value, CACHED_AI_TIME);
 
-        // --- PART 2: UPLOAD FILES VIA STANDARD API ---
+        // --- PART 2: UPLOAD FILES ---
         if (selectedFiles.length > 0) {
             saveBtn.innerText = `Uploading ${selectedFiles.length} Files...`;
             await saveFilesToSalesforceRecord();
@@ -952,19 +641,19 @@ async function finalizeSave() {
         
         setTimeout(() => { 
             saveBtn.disabled = true; 
-            saveBtn.innerText = "Save Data & Files to Salesforce"; 
+            saveBtn.innerText = "Save All Data & Files"; 
         }, 3000);
 
     } catch (e) {
         console.error(e);
         showStatus("❌ Save failed: " + e.message, true);
         saveBtn.disabled = false;
-        saveBtn.innerText = "Save Data & Files to Salesforce";
+        saveBtn.innerText = "Save All Data & Files";
     }
 }
 
-// 1. Send JSON + F2F to Custom Apex REST API
-async function sendToSalesforce(rawJson, f2fSummary, aiTimeSeconds) {
+// Updated to include ptOtData
+async function sendToSalesforce(rawJson, f2fSummary, ptOtData, aiTimeSeconds) {
     const endpoint =  `${SF_BASE_URL}/services/apexrest/non-oasis/ai-result`;
     const response = await fetch(endpoint, {
         method: "POST",
@@ -972,25 +661,20 @@ async function sendToSalesforce(rawJson, f2fSummary, aiTimeSeconds) {
         body: JSON.stringify({ 
             chartId: CHART_ID, 
             rawJson: rawJson, 
-            f2fSummary: f2fSummary, // Added this field
+            f2fSummary: f2fSummary,
+            ptOtJson: ptOtData, // Added new field for PT/OT
             aiTimeSeconds: aiTimeSeconds 
         })
     });
     if (!response.ok) throw new Error(await response.text());
 }
 
-// 2. Upload Files directly to ContentVersion (Standard Salesforce API)
 async function saveFilesToSalesforceRecord() {
     const endpoint = `${SF_BASE_URL}/services/data/v57.0/sobjects/ContentVersion`;
-
     for (let i = 0; i < selectedFiles.length; i++) {
         const file = selectedFiles[i];
-        
-        showStatus(`Uploading file ${i+1} of ${selectedFiles.length}: ${file.name}...`, false);
-        
         try {
             const fileData = await readFileAsBase64(file); 
-
             const payload = {
                 "Title": file.name,
                 "PathOnClient": file.name,
@@ -998,7 +682,6 @@ async function saveFilesToSalesforceRecord() {
                 "FirstPublishLocationId": CHART_ID, 
                 "Origin": "H" 
             };
-
             const response = await fetch(endpoint, {
                 method: "POST",
                 headers: { 
@@ -1008,16 +691,10 @@ async function saveFilesToSalesforceRecord() {
                 },
                 body: JSON.stringify(payload)
             });
-
             if (!response.ok) {
                 const errorData = await response.json(); 
-                const errorCode = errorData[0]?.errorCode || "UNKNOWN";
-                const errorMessage = errorData[0]?.message || "Unknown error";
-                throw new Error(`Salesforce Error: ${errorCode} - ${errorMessage}`);
+                throw new Error(errorData[0]?.message || "Unknown error");
             }
-
-            console.log(`✅ Upload Success: ${file.name}`);
-
         } catch (err) {
             console.error(err);
             showStatus(`❌ Failed to upload ${file.name}: ${err.message}`, true);
@@ -1029,37 +706,69 @@ async function saveFilesToSalesforceRecord() {
    API CALLS (GEMINI)
    ========================================================= */
 
-// NEW FUNCTION: F2F Summary
+// --- 1. F2F SUMMARY ---
 async function callGeminiF2FSummary(fileDataArray) {
-    // Prompt taken exactly from the provided Apex reference
     const f2fPrompt = `
-You will receive multiple uploaded clinical documents.
-Your job is to carefully READ and UNDERSTAND all documents using full medical reasoning.
-
-Determine whether ANY file represents a clinical:
-- Face-to-Face (F2F) visit note, OR
-- Encounter note, OR
-- Evaluation/assessment visit documentation, OR
-- Any clinical document describing a direct meeting with the patient.
-
-Do NOT rely on keywords. Use your understanding of medical documentation structure, tone, content, and intent.
-If no such document exists, reply EXACTLY with: "No F2F document found."
+You will receive uploaded clinical documents.
+Determine whether ANY file represents a clinical Face-to-Face (F2F) visit note, Encounter note, or Evaluation.
+If no such document exists, reply EXACTLY: "No F2F document found."
 
 If such a document EXISTS:
-→ Provide a concise clinical summary UNDER 200 WORDS that includes:
+→ Provide a concise clinical summary UNDER 200 WORDS including:
    - Reason for visit
-   - Key diagnoses or conditions mentioned
-   - Symptoms or significant findings
-   - Any plan, recommendations, or follow-up if mentioned
+   - Key diagnoses
+   - Symptoms/findings
+   - Plan/Follow-up
 
-Summarize ONLY what is written. Never fabricate or assume.
+Summarize ONLY what is written.
     `;
-
     const parts = [{ text: f2fPrompt }];
     fileDataArray.forEach(f => {
-        parts.push({
-            inlineData: { mimeType: f.mimeType, data: f.base64 }
-        });
+        parts.push({ inlineData: { mimeType: f.mimeType, data: f.base64 } });
+    });
+    const response = await fetch(`${GEMINI_VISION_ENDPOINT}?key=${GEMINI_API_KEY}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contents: [{ parts: parts }] })
+    });
+    if (!response.ok) return "No F2F document found.";
+    const data = await response.json();
+    return data.candidates[0].content.parts[0].text.replace(/\*/g, "").trim();
+}
+
+// --- 2. PT/OT EXTRACTION (NEW) ---
+async function callGeminiPtOtExtraction(fileDataArray) {
+    const ptOtPrompt = `
+Role: Medical Data Encoder.
+Task: Extract functional assessment data from PT or OT documents.
+
+Value Mapping Rules (Strict):
+Convert text terms to numeric codes:
+- "Independent", "Safe", "Ind", "6" -> "6"
+- "Setup", "Cleanup", "Mod I", "5" -> "5"
+- "Supervision", "SBA", "Stand By Assist", "Touch", "CGA", "Min A", "Mod A", "Contact Guard" -> "4"
+- "Max Assist", "Total Assist", "Dependent", "Unable", "1", "2" -> "2"
+- "Not Attempted", "N/A" -> "NT"
+
+JSON Output Keys (Return ONLY valid JSON):
+{
+  "Discipline": "PT or OT or N/A",
+  "Eval_Date": "YYYY-MM-DD",
+  "Bed_Mobility": "Code (6,5,4,2,NT)",
+  "Transfers": "Code",
+  "Ambulation": "Code",
+  "Bathing": "Code",
+  "Dressing_Upper": "Code",
+  "Dressing_Lower": "Code",
+  "Toileting": "Code",
+  "Feeding": "Code"
+}
+If no PT/OT document is present, return empty JSON "{}".
+    `;
+
+    const parts = [{ text: ptOtPrompt }];
+    fileDataArray.forEach(f => {
+        parts.push({ inlineData: { mimeType: f.mimeType, data: f.base64 } });
     });
 
     const response = await fetch(`${GEMINI_VISION_ENDPOINT}?key=${GEMINI_API_KEY}`, {
@@ -1068,220 +777,61 @@ Summarize ONLY what is written. Never fabricate or assume.
         body: JSON.stringify({ contents: [{ parts: parts }] })
     });
 
-    if (!response.ok) {
-        console.warn("F2F Summary failed, returning default message.");
-        return "No F2F document found."; // Fail gracefully
-    }
+    if (!response.ok) return "{}";
     const data = await response.json();
-    let text = data.candidates[0].content.parts[0].text;
-    
-    // Clean markdown if present
-    text = text.replace(/\*/g, "").trim();
-    return text;
+    return data.candidates[0].content.parts[0].text;
 }
 
+// --- 3. DIAGNOSIS EXTRACTION ---
 async function callGeminiVisionMulti(fileDataArray) {
     const extractionPrompt = `
 You are a clinical document extraction auditor.
+Extract diagnoses EXACTLY as written.
 
-You MUST perform a FULL scan of ALL uploaded files before generating any output.
-Treat ALL files as ONE combined patient chart.
-
-Your job:
-- Extract diagnoses EXACTLY as written
-- Identify potential primary diagnoses
-- Provide justification for each selected diagnosis
-- Specify the exact location (page, section, or line reference) where it was found
-
-====================================================
-PRIMARY DIAGNOSIS SELECTION RULES
-====================================================
-1. Identify diagnoses that are clinically primary based on:
-   - Reason for visit
-   - Acute presentation
-   - Major treatment focus
-   - Explicitly labeled primary diagnoses
-   - Repeated emphasis
-2. If the document explicitly labels "Primary Diagnosis", include it.
-3. If multiple diagnoses qualify, return ALL potential primary diagnoses.
-4. Do NOT assume anything. Use only the document text.
-
-====================================================
-DIAGNOSIS EXTRACTION RULES
-====================================================
-1. Extract ALL diagnoses exactly as written.
-2. If an ICD code is present next to a diagnosis, return it exactly.
-3. If no ICD code is found, return "".
-4. Remove duplicates.
-5. All diagnoses NOT classified as primary MUST appear under Secondary Diagnoses.
-6. For each diagnosis, return REASON & SOURCE in simple plain text.
-
-====================================================
-STRICT OUTPUT FORMAT (Return ONLY this text)
-====================================================
-
+STRICT OUTPUT FORMAT:
 SECTION 1: PATIENT DIAGNOSIS DETAILS
-Patient Name: <name or NOT FOUND>
-Age: <age or NOT FOUND>
+Patient Name: <name>
+Age: <age>
 
 Potential Primary Diagnoses:
-- Diagnosis: <diagnosis>
+- Diagnosis: <dx>
   ICD Code: <code>
-  Reason & Source:
-  <why selected>
-  <page/section/snippet found>
-(Repeat for each)
+  Reason & Source: <text>
 
 Secondary Diagnoses:
-- Diagnosis: <diagnosis>
+- Diagnosis: <dx>
   ICD Code: <code>
-  Reason & Source:
-  <snippet or evidence>
-  <page/section found>
-(Repeat for each)
-
-You MUST read every line of every uploaded file.
-Missing any diagnosis is considered an audit failure.
-YOU MUST NOT summarize, assume, or fabricate any diagnosis.
-Every output must directly come from the uploaded files.
-
+  Reason & Source: <text>
     `;
-
     const parts = [{ text: extractionPrompt }];
     fileDataArray.forEach(f => {
-        parts.push({
-            inlineData: { mimeType: f.mimeType, data: f.base64 }
-        });
+        parts.push({ inlineData: { mimeType: f.mimeType, data: f.base64 } });
     });
-
     const response = await fetch(`${GEMINI_VISION_ENDPOINT}?key=${GEMINI_API_KEY}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ contents: [{ parts: parts }] })
     });
-
     if (!response.ok) throw new Error("Vision Step Failed");
     const data = await response.json();
     return data.candidates[0].content.parts[0].text;
 }
 
+// --- 4. AUDITOR ---
 async function callGeminiAuditor(extractedText) {
     const auditorSystemPrompt = `
-You are an Expert ICD-10-CM Medical Coding Auditor and Compliance Officer.
-Your task is to perform a complete audit and produce a correct, conflict-free,
-clinically validated, mandatory-rule-compliant, properly sequenced ICD-10-CM
-diagnostic output.
-
-You have FOUR authoritative knowledge sources:
-1. File A — ICD-10-CM Excel Database (valid codes + official descriptions)
-2. File B — ICD-10-CM Tabular List PDF (Includes, Excludes1, Excludes2, Code First,
-   Use Additional Code, sequencing rules)
-3. File C — ICD-10 Potential Primary Diagnosis Codes
-   (Only these clinically valid codes can be potential primary.)
-4. File D — Coding Tip File
-   (Guidelines, overrides, use additional code, sequencing adjustments.)
-
-======================================================================
-STRICT RULE — POTENTIAL PRIMARY LOGIC
-======================================================================
-A diagnosis can be "potentialPrimary" ONLY IF:
-• It appears under “Potential Primary Diagnosis” in the input AND
-• The ICD exists in File C AND
-• Clinical Group (from File C) is NOT blank
-
-Otherwise → potentialPrimary MUST be false.
-
-potentialPrimary value MUST always be boolean (true or false).
-
-======================================================================
-GLOBAL RULE — EVERY CODE MUST BE CHECKED AGAINST ALL GUIDELINES
-======================================================================
-For EACH ICD code you output, YOU MUST:
-• Validate the ICD from File A (code + description)
-• Apply ALL applicable Tabular List rules from File B:
-  - Excludes1 → DROP conflicting codes
-  - Excludes2 → allow but handle correctly
-  - Code First → ensure parent condition appears before this code
-  - Use Additional Code → add the required secondary code
-• Apply Coding Tips from File D when relevant
-• Apply sequencing rules EXACTLY as mandated
-• Remove any ICD code that violates a rule or creates a contradiction
-
-EVERY RULE MUST BE APPLIED CODE BY CODE, NOT GLOBALLY.
-
-======================================================================
-IMPORTANT — ABOUT REASON & SOURCE
-======================================================================
-For each diagnosis in the input text:
-• Extract the exact "Reason & Source" block
-• The returned JSON must include reasonSource EXACTLY as provided
-• Keep reasonSource in simple plain text
-• Do NOT use single quotes or double quotes inside reasonSource
-
-If YOU add an ICD due to:
-• Code First rule
-• Use Additional Code rule
-• Coding Tip rule
-• Sequencing adjustment
-
-→ You MUST generate a NEW reasonSource explaining why the code was added.
-
-NO ICD should be returned without a reasonSource.
-
-======================================================================
-FINAL OUTPUT FORMAT (STRICT JSON — DO NOT CHANGE FIELD NAMES)
-======================================================================
-
+You are an ICD-10-CM Auditor.
+Validate the input diagnoses against official ICD-10 rules (Excludes1, Sequencing, Code First).
+Output strictly formatted JSON:
 [
-  {
-    "code": "<ICD from File A>",
-    "reasonSource": "<Original text OR rule-based explanation in simple plain text>",
-    "potentialPrimary": true or false
-  }
+  { "code": "ICD", "reasonSource": "Text", "potentialPrimary": true/false }
 ]
-
-======================================================================
-PROCESS STEPS YOU MUST FOLLOW
-======================================================================
-
-STEP 1 — Normalize & Validate Diagnoses
-• Extract all diagnoses and ICD codes
-• Validate each ICD using File A
-• Assign correct ICD where missing
-• DROP invalid, incomplete, or conflicting ICDs
-• Ensure potentialPrimary is always true or false
-• If undeterminable → default to false
-
-STEP 2 — Apply Potential Primary Validation
-
-STEP 3 — Apply Excludes1 (DROP conflicting codes)
-
-STEP 4 — Apply Excludes2 rules if relevant
-
-STEP 5 — Apply Coding Tips from File D (MANDATORY for each code)
-
-STEP 6 — Apply CODE FIRST rules (insert required parent ICDs)
-
-STEP 7 — Apply USE ADDITIONAL CODE rules (insert required secondary ICDs)
-
-STEP 8 — Final compliance validation, sequencing correction,
-          and conflict removal
-
-======================================================================
-INPUT DIAGNOSES TO AUDIT:
-======================================================================
-
-<medicalExtractText>
-
     `;
-
     const userPrompt = `INPUT:\n${extractedText}`;
-
     let toolsConfig = [];
     if (VECTOR_STORE_ID) {
         toolsConfig = [{ retrieval: { vertex_ai_search: { datastore: VECTOR_STORE_ID } } }];
     }
-
     const response = await fetch(`${GEMINI_RAG_ENDPOINT}?key=${GEMINI_API_KEY}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1291,7 +841,6 @@ INPUT DIAGNOSES TO AUDIT:
             tools: toolsConfig
         })
     });
-
     if (!response.ok) throw new Error("Audit Step Failed");
     const data = await response.json();
     return data.candidates[0].content.parts[0].text;
