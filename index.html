@@ -18,7 +18,7 @@
     }
 
     .card {
-        width: 650px; /* Slightly wider to accommodate more data */
+        width: 650px; /* Slightly wider to accommodate data */
         background: #081821;
         border-radius: 14px;
         padding: 28px;
@@ -26,6 +26,40 @@
         margin: 20px 0;
         position: relative;
         border: 1px solid #1f3a4d;
+    }
+
+    h2 {
+        margin-top: 0;
+        margin-bottom: 8px;
+        font-weight: 600;
+        text-align: center;
+        letter-spacing: 0.5px;
+        color: #e0e0e0;
+    }
+
+    p {
+        font-size: 14px;
+        opacity: 0.7;
+        text-align: center;
+        margin-bottom: 25px;
+        color: #8daac2;
+    }
+
+    /* --- FILE INPUT --- */
+    input[type="file"] {
+        width: 100%;
+        padding: 12px;
+        border-radius: 8px;
+        border: 1px dashed #4fa3ff;
+        background: #06141c;
+        color: #fff;
+        cursor: pointer;
+        box-sizing: border-box;
+        margin-bottom: 20px;
+        transition: border-color 0.3s;
+    }
+    input[type="file"]:hover {
+        border-color: #7abaff;
     }
 
     /* --- UPLOAD CARD STYLES --- */
@@ -65,7 +99,6 @@
         color: #9bb9d4;
     }
 
-    /* --- UPLOAD ZONE --- */
     .upload-zone {
         border: 2px dashed #355a74;
         border-radius: 12px;
@@ -94,7 +127,6 @@
         color: #d6eaff;
     }
 
-    /* --- FILE LIST --- */
     .file-section-header {
         font-size: 13px;
         font-weight: 600;
@@ -103,6 +135,7 @@
         display: none;
     }
 
+    /* --- FILE LIST --- */
     .file-list {
         display: flex;
         flex-direction: column;
@@ -119,6 +152,10 @@
         padding: 10px 14px;
         border: 1px solid #e6e6e6;
         transition: all 0.2s ease;
+    }
+
+    .file-item:hover {
+        box-shadow: 0 6px 18px rgba(0,0,0,0.08);
     }
 
     .file-left {
@@ -198,7 +235,6 @@
     .analyze-btn:disabled {
         background: #6b6b6b;
         color: #d1d1d1;
-        cursor: not-allowed;
     }
 
     .save-btn {
@@ -247,15 +283,6 @@
         transition: width 0.4s ease;
     }
 
-    .status {
-        margin-top: 15px;
-        font-size: 13px;
-        text-align: center;
-        min-height: 20px;
-    }
-    .success { color: #4cff9f; }
-    .error { color: #ff7a7a; }
-
     /* --- RESULTS --- */
     #resultArea {
         display: none;
@@ -278,9 +305,9 @@
         margin-bottom: 15px;
     }
 
-    textarea#jsonOutput { height: 180px; }
-    textarea#f2fOutput { height: 80px; color: #ffc107; } 
-    textarea#ptotOutput { height: 150px; color: #64d2ff; } /* Blue tint for Therapy */
+    textarea#jsonOutput { height: 200px; }
+    textarea#f2fOutput { height: 100px; color: #ffc107; } /* Yellow for F2F */
+    textarea#ptOtOutput { height: 150px; color: #82e0aa; } /* Green tint for PT/OT */
 
     label {
         font-size: 12px;
@@ -290,6 +317,15 @@
         font-weight: 600;
         text-transform: uppercase;
     }
+
+    .status {
+        margin-top: 15px;
+        font-size: 13px;
+        text-align: center;
+        min-height: 20px;
+    }
+    .success { color: #4cff9f; }
+    .error { color: #ff7a7a; }
 
     .upload-disabled {
         pointer-events: none;
@@ -302,9 +338,8 @@
     </head>
     <body>
         <div class="card">
-            <h2 style="margin-top:0; margin-bottom:8px; font-weight:600; text-align:center; color:#e0e0e0;">AI Unified Clinical Analyzer</h2>
-            <p style="font-size:14px; opacity:0.7; text-align:center; margin-bottom:25px; color:#8daac2;">Diagnosis, F2F Summary & Therapy Assessments</p>
-            
+            <h2>AI Non-OASIS Analyzer</h2>
+            <p>Extraction, PT/OT Eval, ICD-10 Audit & F2F</p>
             <div id="loadingMessage" style="text-align:center; color:#4fa3ff; margin-bottom:15px; font-weight:500;">
                 Connecting to Salesforce...
             </div>
@@ -315,7 +350,7 @@
                     <div>
                         <div class="upload-title">Upload Clinical Documents</div>
                         <div class="upload-subtitle">
-                            PT/OT Evals, Face-to-Face, Encounter Notes
+                            Face-to-Face, PT/OT Evals, Encounter Notes
                         </div>
                     </div>
                 </div>
@@ -332,16 +367,14 @@
                     <div class="upload-zone-text">Click to upload or drag files here</div>
                 </div>
                 <div id="fileSectionHeader" class="file-section-header">
-                    Uploaded Files (
-                    <span id="fileCount">0</span>
-                    )
+                    Uploaded Files (<span id="fileCount">0</span>)
                 </div>
                 <div id="fileListContainer" class="file-list"></div>
                 <button id="analyzeBtn" class="analyze-btn" onclick="startAnalysis()">
                     Analyze Documents
                 </button>
             </div>
-
+            
             <div id="progressWrapper" class="progress-wrapper">
                 <div class="progress-label">
                     <span id="progressText">Analyzing...</span>
@@ -351,25 +384,26 @@
                     <div class="progress-fill" id="progressFill"></div>
                 </div>
             </div>
-
+            
             <div id="status" class="status"></div>
-
+            
             <div id="resultArea">
-                <label>F2F Encounter Summary:</label>
-                <textarea id="f2fOutput" class="result-box" readonly placeholder="F2F Summary will appear here..."></textarea>
-                
-                <label>Therapy (PT/OT) Functional Assessment:</label>
-                <textarea id="ptotOutput" class="result-box" readonly placeholder="PT/OT Functional scores will appear here..."></textarea>
-
-                <label>Final Audited Result (ICD-10 Compliant):</label>
-                <textarea id="jsonOutput" class="result-box" readonly placeholder="ICD-10 Audit will appear here..."></textarea>
+                <div style="display:block">
+                    <label>F2F Encounter Summary:</label>
+                    <textarea id="f2fOutput" class="result-box" readonly></textarea>
+                    
+                    <label>PT/OT Functional Assessment:</label>
+                    <textarea id="ptOtOutput" class="result-box" readonly placeholder="Waiting for analysis..."></textarea>
+                    
+                    <label>Final Audited Result (ICD-10 Compliant):</label>
+                    <textarea id="jsonOutput" class="result-box" readonly></textarea>
+                </div>
                 
                 <button id="saveBtn" class="save-btn" onclick="finalizeSave()">
-                    Save All Data & Files
+                    Save Data & Files
                 </button>
             </div>
         </div>
-
         <script>
 
             function disableUploadUI() {
@@ -394,6 +428,7 @@ let CACHED_AI_TIME = 0;
 // Array to store actual File objects
 let selectedFiles = [];
 
+// Using 2.5 Pro for Vision tasks (Diagnosis, PT/OT) and RAG
 const GEMINI_VISION_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent"; 
 const GEMINI_RAG_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent"; 
 
@@ -455,20 +490,37 @@ function renderFileList() {
     selectedFiles.forEach((file, index) => {
         const item = document.createElement("div");
         item.className = "file-item";
+
         const sizeMB = (file.size / 1024 / 1024).toFixed(2);
+
         item.innerHTML = `
             <div class="file-left">
                 <div class="file-type-icon">📄</div>
                 <div class="file-meta">
-                    <div class="file-name" title="${file.name}">${file.name}</div>
-                    <div class="file-size">${sizeMB} MB</div>
+                    <div class="file-name" title="${file.name}">
+                        ${file.name}
+                    </div>
+                    <div class="file-size">
+                        ${sizeMB} MB
+                    </div>
                 </div>
             </div>
-            <button class="remove-btn" onclick="removeFile(${index})" title="Remove">✖</button>
+            <button class="remove-btn" onclick="removeFile(${index})" title="Remove file">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none"
+                    stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path>
+                    <path d="M10 11v6"></path>
+                    <path d="M14 11v6"></path>
+                    <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path>
+                </svg>
+            </button>
         `;
         container.appendChild(item);
     });
 }
+
 
 /* =========================================================
    PROGRESS BAR HELPER
@@ -491,6 +543,7 @@ let progressValue = 1;
 
 function startAutoProgress(target = 90, speed = 120) {
     clearInterval(progressTimer);
+
     progressTimer = setInterval(() => {
         if (progressValue < target) {
             progressValue++;
@@ -507,6 +560,7 @@ function stopAutoProgress(finalValue = 100, text = "Complete") {
     updateProgress(progressValue, text);
 }
 
+
 /* =========================================================
    MAIN ANALYSIS LOGIC
    ========================================================= */
@@ -516,13 +570,13 @@ async function startAnalysis() {
     const resultArea = document.getElementById("resultArea");
     const jsonOutput = document.getElementById("jsonOutput");
     const f2fOutput = document.getElementById("f2fOutput");
-    const ptotOutput = document.getElementById("ptotOutput");
+    const ptOtOutput = document.getElementById("ptOtOutput"); // Added
     
     // UI Reset
     resultArea.style.display = "none";
     jsonOutput.value = "";
     f2fOutput.value = "";
-    ptotOutput.value = "";
+    ptOtOutput.value = ""; // Reset PT/OT
     showStatus(""); 
     
     // Validations
@@ -540,6 +594,7 @@ async function startAnalysis() {
         disableUploadUI();
         analyzeBtn.innerText = "Analyzing...";
 
+        // 🔵 Start progress
         progressValue = 1;
         updateProgress(1, "Initializing Batch...");
         startAutoProgress(90, 120);
@@ -547,18 +602,18 @@ async function startAnalysis() {
         const startTime = Date.now();
 
         // --- STEP 1: READ FILES ---
-        updateProgress(progressValue, `Reading ${selectedFiles.length} file(s)...`);
+        updateProgress(progressValue, `Processing ${selectedFiles.length} file(s)...`);
         const fileDataArray = await Promise.all(
             selectedFiles.map(file => readFileAsBase64(file))
         );
 
-        // --- STEP 2: PARALLEL AI EXECUTION (Diagnoses, F2F, PT/OT) ---
-        updateProgress(progressValue, "Scanning for Diagnoses, F2F, and Therapy Data...");
+        // --- STEP 2: PARALLEL AI EXECUTION (Diagnosis, F2F, and PT/OT) ---
+        updateProgress(progressValue, "AI Running: Vision, F2F, and PT/OT Extraction...");
         
-        const [rawExtraction, f2fSummaryText, ptotJsonText] = await Promise.all([
-            callGeminiVisionMulti(fileDataArray),    // Diagnosis Extraction
-            callGeminiF2FSummary(fileDataArray),     // F2F Summary
-            callGeminiPtOtExtraction(fileDataArray)  // NEW: PT/OT Extraction
+        const [rawExtraction, f2fSummaryText, ptOtResult] = await Promise.all([
+            callGeminiVisionMulti(fileDataArray), // Diagnosis
+            callGeminiF2FSummary(fileDataArray),  // F2F
+            runPtOtExtraction(fileDataArray)      // PT/OT (New)
         ]);
 
         // --- STEP 3: AUDIT DIAGNOSES ---
@@ -568,27 +623,30 @@ async function startAnalysis() {
         CACHED_AI_TIME = Math.floor((Date.now() - startTime) / 1000);
 
         // --- STEP 4: DISPLAY RESULTS ---
-        
-        // Format Diagnosis JSON
+        // 1. Diagnosis JSON
         let prettyJson = finalAuditJson;
         try {
-            const cleanJson = finalAuditJson.replace(/```json/g, "").replace(/```/g, "").trim();
+            const cleanJson = finalAuditJson
+                .replace(/```json/g, "")
+                .replace(/```/g, "")
+                .trim();
             prettyJson = JSON.stringify(JSON.parse(cleanJson), null, 4);
         } catch {}
 
-        // Format PT/OT JSON
-        let prettyPtOt = ptotJsonText;
+        // 2. PT/OT JSON
+        let prettyPtOt = ptOtResult;
         try {
-            const cleanPtOt = ptotJsonText.replace(/```json/g, "").replace(/```/g, "").trim();
-            prettyPtOt = JSON.stringify(JSON.parse(cleanPtOt), null, 4);
+             const cleanPtOt = ptOtResult.replace(/```json/g, "").replace(/```/g, "").trim();
+             prettyPtOt = JSON.stringify(JSON.parse(cleanPtOt), null, 4);
         } catch {}
 
         jsonOutput.value = prettyJson;
         f2fOutput.value = f2fSummaryText;
-        ptotOutput.value = prettyPtOt; // Display PT/OT result
+        ptOtOutput.value = prettyPtOt; // Display PT/OT
         
         resultArea.style.display = "block";
 
+        // ✅ Finish progress
         stopAutoProgress(100, "Complete");
 
         setTimeout(() => {
@@ -604,30 +662,37 @@ async function startAnalysis() {
 
     } finally {
         analyzeBtn.disabled = false;
-        analyzeBtn.innerText = "Analyze Files";
+        analyzeBtn.innerText = "Analyze Documents";
         enableUploadUI();
     }
+
 }
 
 /* =========================================================
-   SAVE LOGIC (Unified)
+   SAVE LOGIC (JSON + F2F + PT/OT + FILES)
    ========================================================= */
 
 async function finalizeSave() {
     const saveBtn = document.getElementById("saveBtn");
     const jsonOutput = document.getElementById("jsonOutput");
     const f2fOutput = document.getElementById("f2fOutput");
-    const ptotOutput = document.getElementById("ptotOutput");
+    const ptOtOutput = document.getElementById("ptOtOutput");
     
     try {
         saveBtn.disabled = true;
         
-        // --- PART 1: SAVE DATA VIA APEX ---
+        // --- PART 1: SAVE JSON DATA, F2F, & PT/OT VIA APEX ---
         saveBtn.innerText = "Saving Data...";
-        // We pass ALL data (Diagnoses, F2F, and PT/OT)
-        await sendToSalesforce(jsonOutput.value, f2fOutput.value, ptotOutput.value, CACHED_AI_TIME);
+        
+        // We now pass rawJson, f2f, and ptOtJson
+        await sendToSalesforce(
+            jsonOutput.value, 
+            f2fOutput.value, 
+            ptOtOutput.value, 
+            CACHED_AI_TIME
+        );
 
-        // --- PART 2: UPLOAD FILES ---
+        // --- PART 2: UPLOAD FILES VIA STANDARD API ---
         if (selectedFiles.length > 0) {
             saveBtn.innerText = `Uploading ${selectedFiles.length} Files...`;
             await saveFilesToSalesforceRecord();
@@ -641,19 +706,19 @@ async function finalizeSave() {
         
         setTimeout(() => { 
             saveBtn.disabled = true; 
-            saveBtn.innerText = "Save All Data & Files"; 
+            saveBtn.innerText = "Save Data & Files"; 
         }, 3000);
 
     } catch (e) {
         console.error(e);
         showStatus("❌ Save failed: " + e.message, true);
         saveBtn.disabled = false;
-        saveBtn.innerText = "Save All Data & Files";
+        saveBtn.innerText = "Save Data & Files";
     }
 }
 
-// Updated to include ptOtData
-async function sendToSalesforce(rawJson, f2fSummary, ptOtData, aiTimeSeconds) {
+// 1. Send Data to Custom Apex REST API
+async function sendToSalesforce(rawJson, f2fSummary, ptOtJson, aiTimeSeconds) {
     const endpoint =  `${SF_BASE_URL}/services/apexrest/non-oasis/ai-result`;
     const response = await fetch(endpoint, {
         method: "POST",
@@ -661,20 +726,26 @@ async function sendToSalesforce(rawJson, f2fSummary, ptOtData, aiTimeSeconds) {
         body: JSON.stringify({ 
             chartId: CHART_ID, 
             rawJson: rawJson, 
-            f2fSummary: f2fSummary,
-            ptOtJson: ptOtData, // Added new field for PT/OT
+            f2fSummary: f2fSummary, 
+            ptOtJson: ptOtJson, // Added PT/OT to payload
             aiTimeSeconds: aiTimeSeconds 
         })
     });
     if (!response.ok) throw new Error(await response.text());
 }
 
+// 2. Upload Files directly to ContentVersion (Standard Salesforce API)
 async function saveFilesToSalesforceRecord() {
     const endpoint = `${SF_BASE_URL}/services/data/v57.0/sobjects/ContentVersion`;
+
     for (let i = 0; i < selectedFiles.length; i++) {
         const file = selectedFiles[i];
+        
+        showStatus(`Uploading file ${i+1} of ${selectedFiles.length}: ${file.name}...`, false);
+        
         try {
             const fileData = await readFileAsBase64(file); 
+
             const payload = {
                 "Title": file.name,
                 "PathOnClient": file.name,
@@ -682,6 +753,7 @@ async function saveFilesToSalesforceRecord() {
                 "FirstPublishLocationId": CHART_ID, 
                 "Origin": "H" 
             };
+
             const response = await fetch(endpoint, {
                 method: "POST",
                 headers: { 
@@ -691,10 +763,16 @@ async function saveFilesToSalesforceRecord() {
                 },
                 body: JSON.stringify(payload)
             });
+
             if (!response.ok) {
                 const errorData = await response.json(); 
-                throw new Error(errorData[0]?.message || "Unknown error");
+                const errorCode = errorData[0]?.errorCode || "UNKNOWN";
+                const errorMessage = errorData[0]?.message || "Unknown error";
+                throw new Error(`Salesforce Error: ${errorCode} - ${errorMessage}`);
             }
+
+            console.log(`✅ Upload Success: ${file.name}`);
+
         } catch (err) {
             console.error(err);
             showStatus(`❌ Failed to upload ${file.name}: ${err.message}`, true);
@@ -706,7 +784,7 @@ async function saveFilesToSalesforceRecord() {
    API CALLS (GEMINI)
    ========================================================= */
 
-// --- 1. F2F SUMMARY ---
+// --- 1. F2F Summary ---
 async function callGeminiF2FSummary(fileDataArray) {
     const f2fPrompt = `
 You will receive multiple uploaded clinical documents.
@@ -723,31 +801,125 @@ If no such document exists, reply EXACTLY with: "No F2F document found."
 
 If such a document EXISTS:
 → Provide a concise clinical summary UNDER 200 WORDS that includes:
-   - Reason for visit
-   - Key diagnoses or conditions mentioned
-   - Symptoms or significant findings
-   - Any plan, recommendations, or follow-up if mentioned
+   - Reason for visit
+   - Key diagnoses or conditions mentioned
+   - Symptoms or significant findings
+   - Any plan, recommendations, or follow-up if mentioned
 
 Summarize ONLY what is written. Never fabricate or assume.
     `;
+
     const parts = [{ text: f2fPrompt }];
     fileDataArray.forEach(f => {
-        parts.push({ inlineData: { mimeType: f.mimeType, data: f.base64 } });
+        parts.push({
+            inlineData: { mimeType: f.mimeType, data: f.base64 }
+        });
     });
+
     const response = await fetch(`${GEMINI_VISION_ENDPOINT}?key=${GEMINI_API_KEY}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ contents: [{ parts: parts }] })
     });
-    if (!response.ok) return "No F2F document found.";
+
+    if (!response.ok) {
+        console.warn("F2F Summary failed, returning default message.");
+        return "No F2F document found."; 
+    }
     const data = await response.json();
-    return data.candidates[0].content.parts[0].text.replace(/\*/g, "").trim();
+    let text = data.candidates[0].content.parts[0].text;
+    return text.replace(/\*/g, "").trim();
 }
 
-// --- 2. PT/OT EXTRACTION (NEW) ---
-async function callGeminiPtOtExtraction(fileDataArray) {
-    const ptOtPrompt = `
-Role - You are an expert Medical Data Encoder.
+// --- 2. Diagnosis Extraction (Raw) ---
+async function callGeminiVisionMulti(fileDataArray) {
+    const extractionPrompt = `
+You are a clinical document extraction auditor.
+
+You MUST perform a FULL scan of ALL uploaded files before generating any output.
+Treat ALL files as ONE combined patient chart.
+
+Your job:
+- Extract diagnoses EXACTLY as written
+- Identify potential primary diagnoses
+- Provide justification for each selected diagnosis
+- Specify the exact location (page, section, or line reference) where it was found
+
+====================================================
+PRIMARY DIAGNOSIS SELECTION RULES
+====================================================
+1. Identify diagnoses that are clinically primary based on:
+   - Reason for visit
+   - Acute presentation
+   - Major treatment focus
+   - Explicitly labeled primary diagnoses
+   - Repeated emphasis
+2. If the document explicitly labels "Primary Diagnosis", include it.
+3. If multiple diagnoses qualify, return ALL potential primary diagnoses.
+4. Do NOT assume anything. Use only the document text.
+
+====================================================
+DIAGNOSIS EXTRACTION RULES
+====================================================
+1. Extract ALL diagnoses exactly as written.
+2. If an ICD code is present next to a diagnosis, return it exactly.
+3. If no ICD code is found, return "".
+4. Remove duplicates.
+5. All diagnoses NOT classified as primary MUST appear under Secondary Diagnoses.
+6. For each diagnosis, return REASON & SOURCE in simple plain text.
+
+====================================================
+STRICT OUTPUT FORMAT (Return ONLY this text)
+====================================================
+
+SECTION 1: PATIENT DIAGNOSIS DETAILS
+Patient Name: <name or NOT FOUND>
+Age: <age or NOT FOUND>
+
+Potential Primary Diagnoses:
+- Diagnosis: <diagnosis>
+  ICD Code: <code>
+  Reason & Source:
+  <why selected>
+  <page/section/snippet found>
+(Repeat for each)
+
+Secondary Diagnoses:
+- Diagnosis: <diagnosis>
+  ICD Code: <code>
+  Reason & Source:
+  <snippet or evidence>
+  <page/section found>
+(Repeat for each)
+
+You MUST read every line of every uploaded file.
+Missing any diagnosis is considered an audit failure.
+YOU MUST NOT summarize, assume, or fabricate any diagnosis.
+Every output must directly come from the uploaded files.
+    `;
+
+    const parts = [{ text: extractionPrompt }];
+    fileDataArray.forEach(f => {
+        parts.push({
+            inlineData: { mimeType: f.mimeType, data: f.base64 }
+        });
+    });
+
+    const response = await fetch(`${GEMINI_VISION_ENDPOINT}?key=${GEMINI_API_KEY}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contents: [{ parts: parts }] })
+    });
+
+    if (!response.ok) throw new Error("Vision Step Failed");
+    const data = await response.json();
+    return data.candidates[0].content.parts[0].text;
+}
+
+// --- 3. PT/OT Extraction (New Integrated Function) ---
+async function runPtOtExtraction(fileDataArray) {
+    const prompt = `
+    Role - You are an expert Medical Data Encoder.
 
     Task -  Extract functional assessment data from the attached Physical Therapy (PT) or Occupational Therapy (OT) documents and map the values to a specific JSON structure using strict standardization rules.
 
@@ -872,7 +1044,7 @@ Role - You are an expert Medical Data Encoder.
     Other__c → Any other relevant functional notes, otherwise null
     `;
 
-    const parts = [{ text: ptOtPrompt }];
+    const parts = [{ text: prompt }];
     fileDataArray.forEach(f => {
         parts.push({ inlineData: { mimeType: f.mimeType, data: f.base64 } });
     });
@@ -883,92 +1055,15 @@ Role - You are an expert Medical Data Encoder.
         body: JSON.stringify({ contents: [{ parts: parts }] })
     });
 
-    if (!response.ok) return "{}";
+    if (!response.ok) {
+        console.warn("PT/OT Extraction failed");
+        return "{}";
+    }
     const data = await response.json();
     return data.candidates[0].content.parts[0].text;
 }
 
-// --- 3. DIAGNOSIS EXTRACTION ---
-async function callGeminiVisionMulti(fileDataArray) {
-    const extractionPrompt = `
-You are a clinical document extraction auditor.
-
-You MUST perform a FULL scan of ALL uploaded files before generating any output.
-Treat ALL files as ONE combined patient chart.
-
-Your job:
-- Extract diagnoses EXACTLY as written
-- Identify potential primary diagnoses
-- Provide justification for each selected diagnosis
-- Specify the exact location (page, section, or line reference) where it was found
-
-====================================================
-PRIMARY DIAGNOSIS SELECTION RULES
-====================================================
-1. Identify diagnoses that are clinically primary based on:
-   - Reason for visit
-   - Acute presentation
-   - Major treatment focus
-   - Explicitly labeled primary diagnoses
-   - Repeated emphasis
-2. If the document explicitly labels "Primary Diagnosis", include it.
-3. If multiple diagnoses qualify, return ALL potential primary diagnoses.
-4. Do NOT assume anything. Use only the document text.
-
-====================================================
-DIAGNOSIS EXTRACTION RULES
-====================================================
-1. Extract ALL diagnoses exactly as written.
-2. If an ICD code is present next to a diagnosis, return it exactly.
-3. If no ICD code is found, return "".
-4. Remove duplicates.
-5. All diagnoses NOT classified as primary MUST appear under Secondary Diagnoses.
-6. For each diagnosis, return REASON & SOURCE in simple plain text.
-
-====================================================
-STRICT OUTPUT FORMAT (Return ONLY this text)
-====================================================
-
-SECTION 1: PATIENT DIAGNOSIS DETAILS
-Patient Name: <name or NOT FOUND>
-Age: <age or NOT FOUND>
-
-Potential Primary Diagnoses:
-- Diagnosis: <diagnosis>
-  ICD Code: <code>
-  Reason & Source:
-  <why selected>
-  <page/section/snippet found>
-(Repeat for each)
-
-Secondary Diagnoses:
-- Diagnosis: <diagnosis>
-  ICD Code: <code>
-  Reason & Source:
-  <snippet or evidence>
-  <page/section found>
-(Repeat for each)
-
-You MUST read every line of every uploaded file.
-Missing any diagnosis is considered an audit failure.
-YOU MUST NOT summarize, assume, or fabricate any diagnosis.
-Every output must directly come from the uploaded files.
-    `;
-    const parts = [{ text: extractionPrompt }];
-    fileDataArray.forEach(f => {
-        parts.push({ inlineData: { mimeType: f.mimeType, data: f.base64 } });
-    });
-    const response = await fetch(`${GEMINI_VISION_ENDPOINT}?key=${GEMINI_API_KEY}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contents: [{ parts: parts }] })
-    });
-    if (!response.ok) throw new Error("Vision Step Failed");
-    const data = await response.json();
-    return data.candidates[0].content.parts[0].text;
-}
-
-// --- 4. AUDITOR ---
+// --- 4. RAG Auditor ---
 async function callGeminiAuditor(extractedText) {
     const auditorSystemPrompt = `
 You are an Expert ICD-10-CM Medical Coding Auditor and Compliance Officer.
@@ -979,11 +1074,11 @@ diagnostic output.
 You have FOUR authoritative knowledge sources:
 1. File A — ICD-10-CM Excel Database (valid codes + official descriptions)
 2. File B — ICD-10-CM Tabular List PDF (Includes, Excludes1, Excludes2, Code First,
-   Use Additional Code, sequencing rules)
+   Use Additional Code, sequencing rules)
 3. File C — ICD-10 Potential Primary Diagnosis Codes
-   (Only these clinically valid codes can be potential primary.)
+   (Only these clinically valid codes can be potential primary.)
 4. File D — Coding Tip File
-   (Guidelines, overrides, use additional code, sequencing adjustments.)
+   (Guidelines, overrides, use additional code, sequencing adjustments.)
 
 ======================================================================
 STRICT RULE — POTENTIAL PRIMARY LOGIC
@@ -1003,10 +1098,10 @@ GLOBAL RULE — EVERY CODE MUST BE CHECKED AGAINST ALL GUIDELINES
 For EACH ICD code you output, YOU MUST:
 • Validate the ICD from File A (code + description)
 • Apply ALL applicable Tabular List rules from File B:
-  - Excludes1 → DROP conflicting codes
-  - Excludes2 → allow but handle correctly
-  - Code First → ensure parent condition appears before this code
-  - Use Additional Code → add the required secondary code
+  - Excludes1 → DROP conflicting codes
+  - Excludes2 → allow but handle correctly
+  - Code First → ensure parent condition appears before this code
+  - Use Additional Code → add the required secondary code
 • Apply Coding Tips from File D when relevant
 • Apply sequencing rules EXACTLY as mandated
 • Remove any ICD code that violates a rule or creates a contradiction
@@ -1037,11 +1132,11 @@ FINAL OUTPUT FORMAT (STRICT JSON — DO NOT CHANGE FIELD NAMES)
 ======================================================================
 
 [
-  {
-    "code": "<ICD from File A>",
-    "reasonSource": "<Original text OR rule-based explanation in simple plain text>",
-    "potentialPrimary": true or false
-  }
+  {
+    "code": "<ICD from File A>",
+    "reasonSource": "<Original text OR rule-based explanation in simple plain text>",
+    "potentialPrimary": true or false
+  }
 ]
 
 ======================================================================
@@ -1069,135 +1164,7 @@ STEP 6 — Apply CODE FIRST rules (insert required parent ICDs)
 STEP 7 — Apply USE ADDITIONAL CODE rules (insert required secondary ICDs)
 
 STEP 8 — Final compliance validation, sequencing correction,
-          and conflict removal
-
-======================================================================
-INPUT DIAGNOSES TO AUDIT:
-======================================================================
-
-<medicalExtractText>
-
-    `;
-
-    const parts = [{ text: extractionPrompt }];
-    fileDataArray.forEach(f => {
-        parts.push({
-            inlineData: { mimeType: f.mimeType, data: f.base64 }
-        });
-    });
-
-    const response = await fetch(`${GEMINI_VISION_ENDPOINT}?key=${GEMINI_API_KEY}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contents: [{ parts: parts }] })
-    });
-
-    if (!response.ok) throw new Error("Vision Step Failed");
-    const data = await response.json();
-    return data.candidates[0].content.parts[0].text;
-}
-
-async function callGeminiAuditor(extractedText) {
-    const auditorSystemPrompt = `
-You are an Expert ICD-10-CM Medical Coding Auditor and Compliance Officer.
-Your task is to perform a complete audit and produce a correct, conflict-free,
-clinically validated, mandatory-rule-compliant, properly sequenced ICD-10-CM
-diagnostic output.
-
-You have FOUR authoritative knowledge sources:
-1. File A — ICD-10-CM Excel Database (valid codes + official descriptions)
-2. File B — ICD-10-CM Tabular List PDF (Includes, Excludes1, Excludes2, Code First,
-   Use Additional Code, sequencing rules)
-3. File C — ICD-10 Potential Primary Diagnosis Codes
-   (Only these clinically valid codes can be potential primary.)
-4. File D — Coding Tip File
-   (Guidelines, overrides, use additional code, sequencing adjustments.)
-
-======================================================================
-STRICT RULE — POTENTIAL PRIMARY LOGIC
-======================================================================
-A diagnosis can be "potentialPrimary" ONLY IF:
-• It appears under “Potential Primary Diagnosis” in the input AND
-• The ICD exists in File C AND
-• Clinical Group (from File C) is NOT blank
-
-Otherwise → potentialPrimary MUST be false.
-
-potentialPrimary value MUST always be boolean (true or false).
-
-======================================================================
-GLOBAL RULE — EVERY CODE MUST BE CHECKED AGAINST ALL GUIDELINES
-======================================================================
-For EACH ICD code you output, YOU MUST:
-• Validate the ICD from File A (code + description)
-• Apply ALL applicable Tabular List rules from File B:
-  - Excludes1 → DROP conflicting codes
-  - Excludes2 → allow but handle correctly
-  - Code First → ensure parent condition appears before this code
-  - Use Additional Code → add the required secondary code
-• Apply Coding Tips from File D when relevant
-• Apply sequencing rules EXACTLY as mandated
-• Remove any ICD code that violates a rule or creates a contradiction
-
-EVERY RULE MUST BE APPLIED CODE BY CODE, NOT GLOBALLY.
-
-======================================================================
-IMPORTANT — ABOUT REASON & SOURCE
-======================================================================
-For each diagnosis in the input text:
-• Extract the exact "Reason & Source" block
-• The returned JSON must include reasonSource EXACTLY as provided
-• Keep reasonSource in simple plain text
-• Do NOT use single quotes or double quotes inside reasonSource
-
-If YOU add an ICD due to:
-• Code First rule
-• Use Additional Code rule
-• Coding Tip rule
-• Sequencing adjustment
-
-→ You MUST generate a NEW reasonSource explaining why the code was added.
-
-NO ICD should be returned without a reasonSource.
-
-======================================================================
-FINAL OUTPUT FORMAT (STRICT JSON — DO NOT CHANGE FIELD NAMES)
-======================================================================
-
-[
-  {
-    "code": "<ICD from File A>",
-    "reasonSource": "<Original text OR rule-based explanation in simple plain text>",
-    "potentialPrimary": true or false
-  }
-]
-
-======================================================================
-PROCESS STEPS YOU MUST FOLLOW
-======================================================================
-
-STEP 1 — Normalize & Validate Diagnoses
-• Extract all diagnoses and ICD codes
-• Validate each ICD using File A
-• Assign correct ICD where missing
-• DROP invalid, incomplete, or conflicting ICDs
-• Ensure potentialPrimary is always true or false
-• If undeterminable → default to false
-
-STEP 2 — Apply Potential Primary Validation
-
-STEP 3 — Apply Excludes1 (DROP conflicting codes)
-
-STEP 4 — Apply Excludes2 rules if relevant
-
-STEP 5 — Apply Coding Tips from File D (MANDATORY for each code)
-
-STEP 6 — Apply CODE FIRST rules (insert required parent ICDs)
-
-STEP 7 — Apply USE ADDITIONAL CODE rules (insert required secondary ICDs)
-
-STEP 8 — Final compliance validation, sequencing correction,
-          and conflict removal
+          and conflict removal
 
 ======================================================================
 INPUT DIAGNOSES TO AUDIT:
@@ -1205,11 +1172,14 @@ INPUT DIAGNOSES TO AUDIT:
 
 <medicalExtractText>
     `;
+
     const userPrompt = `INPUT:\n${extractedText}`;
+
     let toolsConfig = [];
     if (VECTOR_STORE_ID) {
         toolsConfig = [{ retrieval: { vertex_ai_search: { datastore: VECTOR_STORE_ID } } }];
     }
+
     const response = await fetch(`${GEMINI_RAG_ENDPOINT}?key=${GEMINI_API_KEY}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1219,6 +1189,7 @@ INPUT DIAGNOSES TO AUDIT:
             tools: toolsConfig
         })
     });
+
     if (!response.ok) throw new Error("Audit Step Failed");
     const data = await response.json();
     return data.candidates[0].content.parts[0].text;
@@ -1248,5 +1219,3 @@ function readFileAsBase64(file) {
         </script>
     </body>
 </html>
-
-
