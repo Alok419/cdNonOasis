@@ -503,15 +503,15 @@
                 </button>
             </div>
         </div>
-        <script>
+       <script>
 
-            function disableUploadUI() {
-                document.getElementById("mainControls").classList.add("upload-disabled");
-            }
+    function disableUploadUI() {
+        document.getElementById("mainControls").classList.add("upload-disabled");
+    }
 
-            function enableUploadUI() {
-                document.getElementById("mainControls").classList.remove("upload-disabled");
-            }
+    function enableUploadUI() {
+        document.getElementById("mainControls").classList.remove("upload-disabled");
+    }
 
 /* =========================================================
    GLOBAL CONTEXT
@@ -527,8 +527,8 @@ let CACHED_AI_TIME = 0;
 // Array to store actual File objects
 let selectedFiles = [];
 
-// Using 2.5 Pro for Vision tasks (Diagnosis, PT/OT) and RAG
-const GEMINI_VISION_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent"; 
+// Using 1.5 Pro for Vision tasks (Diagnosis, PT/OT) and RAG
+const GEMINI_VISION_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent"; 
 const GEMINI_RAG_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent"; 
 
 /* =========================================================
@@ -669,13 +669,13 @@ async function startAnalysis() {
     const resultArea = document.getElementById("resultArea");
     const jsonOutput = document.getElementById("jsonOutput");
     const f2fOutput = document.getElementById("f2fOutput");
-    const ptOtOutput = document.getElementById("ptOtOutput"); // Added
+    const ptOtOutput = document.getElementById("ptOtOutput"); 
     
     // UI Reset
     resultArea.style.display = "none";
     jsonOutput.value = "";
     f2fOutput.value = "";
-    ptOtOutput.value = ""; // Reset PT/OT
+    ptOtOutput.value = ""; 
     showStatus(""); 
     
     // Validations
@@ -696,32 +696,41 @@ async function startAnalysis() {
         // 🔵 Start progress
         progressValue = 1;
         updateProgress(1, "Initializing Batch...");
-        startAutoProgress(90, 120);
+        startAutoProgress(20, 120); // Slow start
 
         const startTime = Date.now();
 
-        // --- STEP 1: READ FILES ---
-        updateProgress(progressValue, `Processing ${selectedFiles.length} file(s)...`);
+        // --- STEP 1: READ FILES (Client Side) ---
+        updateProgress(10, `Reading ${selectedFiles.length} file(s)...`);
         const fileDataArray = await Promise.all(
             selectedFiles.map(file => readFileAsBase64(file))
         );
 
-        // --- STEP 2: PARALLEL AI EXECUTION (Diagnosis, F2F, and PT/OT) ---
-        updateProgress(progressValue, "AI Running: Vision, F2F, and PT/OT Extraction...");
+        // --- STEP 2: UPLOAD TO GEMINI (Get URIs) ---
+        updateProgress(20, "Uploading to AI Server...");
+        const uploadedFiles = await Promise.all(fileDataArray.map(uploadToGemini));
+
+        // Restart progress for the AI portion
+        startAutoProgress(90, 200);
+
+        // --- STEP 3: PARALLEL AI EXECUTION (Diagnosis, F2F, and PT/OT) ---
+        updateProgress(40, "AI Running: Vision, F2F, and PT/OT Extraction...");
         
+        // Pass 'uploadedFiles' (URIs) instead of 'fileDataArray' (Base64)
         const [rawExtraction, f2fSummaryText, ptOtResult] = await Promise.all([
-            callGeminiVisionMulti(fileDataArray), // Diagnosis
-            callGeminiF2FSummary(fileDataArray),  // F2F
-            runPtOtExtraction(fileDataArray)      // PT/OT (New)
+            callGeminiVisionMulti(uploadedFiles), // Diagnosis
+            callGeminiF2FSummary(uploadedFiles),  // F2F
+            runPtOtExtraction(uploadedFiles)      // PT/OT
         ]);
 
-        // --- STEP 3: AUDIT DIAGNOSES ---
-        updateProgress(progressValue, "AI Auditor: Validating ICD-10 Rules...");
+        // --- STEP 4: AUDIT DIAGNOSES ---
+        updateProgress(85, "AI Auditor: Validating ICD-10 Rules...");
+        // Auditor uses text input, so it remains unchanged
         const finalAuditJson = await callGeminiAuditor(rawExtraction);
 
         CACHED_AI_TIME = Math.floor((Date.now() - startTime) / 1000);
 
-        // --- STEP 4: DISPLAY RESULTS ---
+        // --- STEP 5: DISPLAY RESULTS ---
         // 1. Diagnosis JSON
         let prettyJson = finalAuditJson;
         try {
@@ -741,7 +750,7 @@ async function startAnalysis() {
 
         jsonOutput.value = prettyJson;
         f2fOutput.value = f2fSummaryText;
-        ptOtOutput.value = prettyPtOt; // Display PT/OT
+        ptOtOutput.value = prettyPtOt; 
         
         resultArea.style.display = "block";
 
@@ -768,6 +777,59 @@ async function startAnalysis() {
 }
 
 /* =========================================================
+   HELPER: UPLOAD TO GEMINI (FILE API)
+   ========================================================= */
+async function uploadToGemini(fileObj) {
+    // 1. Convert Base64 back to Blob for upload
+    const byteCharacters = atob(fileObj.base64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: fileObj.mimeType });
+
+    // 2. Start Resumable Upload Session
+    const uploadUrlResp = await fetch(`https://generativelanguage.googleapis.com/upload/v1beta/files?key=${GEMINI_API_KEY}`, {
+        method: 'POST',
+        headers: {
+            'X-Goog-Upload-Protocol': 'resumable',
+            'X-Goog-Upload-Command': 'start',
+            'X-Goog-Upload-Header-Content-Length': blob.size,
+            'X-Goog-Upload-Header-Content-Type': fileObj.mimeType,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ file: { display_name: fileObj.name } })
+    });
+
+    if (!uploadUrlResp.ok) throw new Error("Failed to initialize upload: " + uploadUrlResp.statusText);
+    
+    // Get the actual upload URL from headers
+    const uploadUrl = uploadUrlResp.headers.get('x-goog-upload-url');
+
+    // 3. Upload the actual bytes
+    const uploadResp = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: {
+            'Content-Length': blob.size,
+            'X-Goog-Upload-Offset': '0',
+            'X-Goog-Upload-Command': 'upload, finalize'
+        },
+        body: blob
+    });
+
+    if (!uploadResp.ok) throw new Error("Failed to upload file bytes");
+
+    const fileInfo = await uploadResp.json();
+    
+    // Return object structure expected by prompt functions
+    return {
+        mimeType: fileObj.mimeType,
+        fileUri: fileInfo.file.uri 
+    };
+}
+
+/* =========================================================
    SAVE LOGIC (JSON + F2F + PT/OT + FILES)
    ========================================================= */
 
@@ -783,7 +845,6 @@ async function finalizeSave() {
         // --- PART 1: SAVE JSON DATA, F2F, & PT/OT VIA APEX ---
         saveBtn.innerText = "Saving Data...";
         
-        // We now pass rawJson, f2f, and ptOtJson
         await sendToSalesforce(
             jsonOutput.value, 
             f2fOutput.value, 
@@ -826,7 +887,7 @@ async function sendToSalesforce(rawJson, f2fSummary, ptOtJson, aiTimeSeconds) {
             chartId: CHART_ID, 
             rawJson: rawJson, 
             f2fSummary: f2fSummary, 
-            ptOtJson: ptOtJson, // Added PT/OT to payload
+            ptOtJson: ptOtJson, 
             aiTimeSeconds: aiTimeSeconds 
         })
     });
@@ -880,11 +941,11 @@ async function saveFilesToSalesforceRecord() {
 }
 
 /* =========================================================
-   API CALLS (GEMINI)
+   API CALLS (GEMINI - UPDATED FOR URI)
    ========================================================= */
 
 // --- 1. F2F Summary ---
-async function callGeminiF2FSummary(fileDataArray) {
+async function callGeminiF2FSummary(uploadedFilesArray) {
     const f2fPrompt = `
 You will receive multiple uploaded clinical documents.
 Your job is to carefully READ and UNDERSTAND all documents using full medical reasoning.
@@ -909,9 +970,9 @@ Summarize ONLY what is written. Never fabricate or assume.
     `;
 
     const parts = [{ text: f2fPrompt }];
-    fileDataArray.forEach(f => {
+    uploadedFilesArray.forEach(f => {
         parts.push({
-            inlineData: { mimeType: f.mimeType, data: f.base64 }
+            fileData: { mimeType: f.mimeType, fileUri: f.fileUri }
         });
     });
 
@@ -931,7 +992,7 @@ Summarize ONLY what is written. Never fabricate or assume.
 }
 
 // --- 2. Diagnosis Extraction (Raw) ---
-async function callGeminiVisionMulti(fileDataArray) {
+async function callGeminiVisionMulti(uploadedFilesArray) {
     const extractionPrompt = `
 You are a clinical document extraction auditor.
 
@@ -998,9 +1059,9 @@ Every output must directly come from the uploaded files.
     `;
 
     const parts = [{ text: extractionPrompt }];
-    fileDataArray.forEach(f => {
+    uploadedFilesArray.forEach(f => {
         parts.push({
-            inlineData: { mimeType: f.mimeType, data: f.base64 }
+            fileData: { mimeType: f.mimeType, fileUri: f.fileUri }
         });
     });
 
@@ -1016,7 +1077,7 @@ Every output must directly come from the uploaded files.
 }
 
 // --- 3. PT/OT Extraction (New Integrated Function) ---
-async function runPtOtExtraction(fileDataArray) {
+async function runPtOtExtraction(uploadedFilesArray) {
     const prompt = `
     Role - You are an expert Medical Data Encoder.
     CRITICAL INSTRUCTION: 
@@ -1148,8 +1209,10 @@ async function runPtOtExtraction(fileDataArray) {
     `;
 
     const parts = [{ text: prompt }];
-    fileDataArray.forEach(f => {
-        parts.push({ inlineData: { mimeType: f.mimeType, data: f.base64 } });
+    uploadedFilesArray.forEach(f => {
+        parts.push({
+            fileData: { mimeType: f.mimeType, fileUri: f.fileUri }
+        });
     });
 
     const response = await fetch(`${GEMINI_VISION_ENDPOINT}?key=${GEMINI_API_KEY}`, {
@@ -1322,6 +1385,7 @@ function readFileAsBase64(file) {
         </script>
     </body>
 </html>
+
 
 
 
