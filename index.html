@@ -1019,6 +1019,10 @@ Every output must directly come from the uploaded files.
 async function runPtOtExtraction(fileDataArray) {
     const prompt = `
     Role - You are an expert Medical Data Encoder.
+    CRITICAL INSTRUCTION: 
+    1. First, determine if any of the uploaded files is a specific Physical Therapy (PT) or Occupational Therapy (OT) Evaluation/Assessment.
+    2. If the files are ONLY OASIS forms, physician encounter notes, or discharge summaries WITHOUT a dedicated PT/OT functional assessment section, you MUST return an empty JSON object: {}
+    3. DO NOT guess information. If the specific functional levels (Max A, Min A, etc.) are not present in a PT/OT context, return {}.
 
     Task -  Extract functional assessment data from the attached Physical Therapy (PT) or Occupational Therapy (OT) documents and map the values to a specific JSON structure using strict standardization rules.
 
@@ -1318,5 +1322,6 @@ function readFileAsBase64(file) {
         </script>
     </body>
 </html>
+
 
 
