@@ -860,7 +860,10 @@ async function finalizeSave() {
         
         showStatus("✅ Data & Files Saved Successfully!", false);
         saveBtn.innerText = "Saved";
-        const isPortal = window.location.pathname.includes('/s/');
+        let currentURL = window.location.href;
+console.log("🌐 Portal  page.----------.."+ currentURL);
+        const isPortal = window.location.includes('/s/');
+        
 
         setTimeout(() => {
             if (isPortal) {
@@ -1395,6 +1398,7 @@ function readFileAsBase64(file) {
         </script>
     </body>
 </html>
+
 
 
 
