@@ -523,6 +523,7 @@ let SF_SESSION_ID = null;
 let SF_BASE_URL = null; 
 let VECTOR_STORE_ID = null;
 let CACHED_AI_TIME = 0;
+let IS_PORTAL = false;
 
 // Array to store actual File objects
 let selectedFiles = [];
@@ -544,6 +545,7 @@ window.addEventListener("message", (event) => {
         SF_SESSION_ID = event.data.sessionId;
         SF_BASE_URL = event.data.baseUrl;
         VECTOR_STORE_ID = event.data.vectorStoreId;
+        IS_PORTAL = event.data.isPortal;
         
         document.getElementById("loadingMessage").style.display = "none";
         document.getElementById("mainControls").style.display = "block";
@@ -860,22 +862,18 @@ async function finalizeSave() {
         
         showStatus("✅ Data & Files Saved Successfully!", false);
         saveBtn.innerText = "Saved";
-        let currentURL = window.location.href;
-console.log("🌐 Portal  page.----------.."+ currentURL);
-        const isPortal = window.location.includes('/s/');
+       
         
 
         setTimeout(() => {
-            if (isPortal) {
-                console.log("🌐 Portal detected: Refreshing page...");
-                // Refresh the current page for portal users
-                window.location.reload();
-            } else {
-                console.log("⚡ Internal Salesforce detected: Redirecting to Record...");
-                // Standard internal redirect
-                window.location.href = `${SF_BASE_URL}/lightning/r/Chart__c/${CHART_ID}/view`;
-            }
-        }, 1000);
+        if (IS_PORTAL) {
+            console.log("🔄 Portal User: Refreshing page...");
+            window.location.reload(); // Refresh current page
+        } else {
+            console.log("🚀 Internal User: Redirecting to Record...");
+            window.location.href = `${SF_BASE_URL}/lightning/r/Chart__c/${CHART_ID}/view`;
+        }
+    }, 1000);
         
         setTimeout(() => { 
             saveBtn.disabled = true; 
@@ -1398,6 +1396,7 @@ function readFileAsBase64(file) {
         </script>
     </body>
 </html>
+
 
 
 
