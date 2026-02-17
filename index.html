@@ -860,9 +860,19 @@ async function finalizeSave() {
         
         showStatus("✅ Data & Files Saved Successfully!", false);
         saveBtn.innerText = "Saved";
+        const isPortal = window.location.pathname.includes('/s/');
+
         setTimeout(() => {
-            window.location.href = `${SF_BASE_URL}/lightning/r/Chart__c/${CHART_ID}/view`;
-        }, 800);
+            if (isPortal) {
+                console.log("🌐 Portal detected: Refreshing page...");
+                // Refresh the current page for portal users
+                window.location.reload();
+            } else {
+                console.log("⚡ Internal Salesforce detected: Redirecting to Record...");
+                // Standard internal redirect
+                window.location.href = `${SF_BASE_URL}/lightning/r/Chart__c/${CHART_ID}/view`;
+            }
+        }, 1000);
         
         setTimeout(() => { 
             saveBtn.disabled = true; 
@@ -1385,6 +1395,7 @@ function readFileAsBase64(file) {
         </script>
     </body>
 </html>
+
 
 
 
