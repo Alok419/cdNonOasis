@@ -305,6 +305,75 @@
         margin-bottom: 15px;
     }
 
+    .result-panel {
+        background: #06141c;
+        border: 1px solid #1f3a4d;
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 16px;
+    }
+
+    .result-panel-title {
+        font-size: 12px;
+        color: #8daac2;
+        display: block;
+        margin-bottom: 10px;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+
+    .result-preview {
+        background: #050e13;
+        border: 1px solid #1f3a4d;
+        border-radius: 10px;
+        padding: 14px;
+        color: #e8f6ff;
+        font-size: 13px;
+        line-height: 1.6;
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+
+    .result-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 12px;
+    }
+
+    .result-item {
+        background: #0a1b25;
+        border: 1px solid #123246;
+        border-radius: 10px;
+        padding: 12px;
+    }
+
+    .result-key {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: #7abaff;
+        margin-bottom: 6px;
+        word-break: break-word;
+    }
+
+    .result-value {
+        font-size: 13px;
+        color: #f4fbff;
+        line-height: 1.5;
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+
+    .result-empty {
+        border: 1px dashed #355a74;
+        border-radius: 10px;
+        padding: 18px;
+        text-align: center;
+        color: #9bb9d4;
+        background: #07131b;
+    }
+
     textarea#jsonOutput { height: 200px; }
     textarea#f2fOutput { height: 100px; color: #ffc107; } /* Yellow for F2F */
     textarea#ptOtOutput { height: 150px; color: #82e0aa; } /* Green tint for PT/OT */
@@ -389,14 +458,24 @@
             
             <div id="resultArea">
                 <div style="display:block">
-                    <label>F2F Encounter Summary:</label>
-                    <textarea id="f2fOutput" class="result-box" readonly></textarea>
-                    
-                    <label>PT/OT Functional Assessment:</label>
-                    <textarea id="ptOtOutput" class="result-box" readonly placeholder="Waiting for analysis..."></textarea>
-                    
-                    <label>Final Audited Result (ICD-10 Compliant):</label>
-                    <textarea id="jsonOutput" class="result-box" readonly></textarea>
+                    <div class="result-panel">
+                        <label class="result-panel-title">F2F Encounter Summary</label>
+                        <div id="f2fPreview" class="result-preview"></div>
+                    </div>
+
+                    <div class="result-panel">
+                        <label class="result-panel-title">PT/OT Functional Assessment</label>
+                        <div id="ptOtPreview" class="result-grid"></div>
+                    </div>
+
+                    <div class="result-panel">
+                        <label class="result-panel-title">Final Audited Result (ICD-10 Compliant)</label>
+                        <div id="jsonPreview" class="result-grid"></div>
+                    </div>
+
+                    <textarea id="f2fOutput" style="display:none;" class="result-box" readonly></textarea>
+                    <textarea id="ptOtOutput" style="display:none;" class="result-box" readonly placeholder="Waiting for analysis..."></textarea>
+                    <textarea id="jsonOutput" style="display:none;" class="result-box" readonly></textarea>
                 </div>
                 
                 
@@ -563,6 +642,86 @@ function stopAutoProgress(finalValue = 100, text = "Complete") {
     updateProgress(progressValue, text);
 }
 
+function escapeHtml(value) {
+    return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+}
+
+function formatResultValue(value) {
+    if (value === null || value === undefined || value === "") {
+        return "N/A";
+    }
+    if (typeof value === "boolean") {
+        return value ? "Yes" : "No";
+    }
+    if (Array.isArray(value)) {
+        return value.length ? value.join(", ") : "N/A";
+    }
+    if (typeof value === "object") {
+        return JSON.stringify(value, null, 2);
+    }
+    return String(value);
+}
+
+function renderTextPreview(elementId, text) {
+    const element = document.getElementById(elementId);
+    const cleanText = (text || "").trim();
+    element.innerHTML = cleanText
+        ? escapeHtml(cleanText)
+        : '<div class="result-empty">No content available.</div>';
+}
+
+function renderJsonPreview(elementId, rawText) {
+    const element = document.getElementById(elementId);
+    element.innerHTML = "";
+
+    let parsed;
+    try {
+        parsed = JSON.parse((rawText || "").replace(/```json/g, "").replace(/```/g, "").trim());
+    } catch (e) {
+        element.innerHTML = rawText && rawText.trim()
+            ? `<div class="result-preview">${escapeHtml(rawText.trim())}</div>`
+            : '<div class="result-empty">No structured data available.</div>';
+        return;
+    }
+
+    let entries = [];
+    if (Array.isArray(parsed)) {
+        parsed.forEach((item, index) => {
+            if (item && typeof item === "object") {
+                Object.entries(item).forEach(([key, value]) => {
+                    entries.push([`${index + 1}. ${key}`, value]);
+                });
+            } else {
+                entries.push([`Item ${index + 1}`, item]);
+            }
+        });
+    } else if (parsed && typeof parsed === "object") {
+        entries = Object.entries(parsed);
+    }
+
+    entries = entries.filter(([, value]) => value !== null && value !== undefined && value !== "");
+
+    if (!entries.length) {
+        element.innerHTML = '<div class="result-empty">No structured data available.</div>';
+        return;
+    }
+
+    entries.forEach(([key, value]) => {
+        const item = document.createElement("div");
+        item.className = "result-item";
+        item.innerHTML = `
+            <div class="result-key">${escapeHtml(key)}</div>
+            <div class="result-value">${escapeHtml(formatResultValue(value))}</div>
+        `;
+        element.appendChild(item);
+    });
+}
+
 
 /* =========================================================
    MAIN ANALYSIS LOGIC
@@ -580,6 +739,9 @@ async function startAnalysis() {
     jsonOutput.value = "";
     f2fOutput.value = "";
     ptOtOutput.value = ""; // Reset PT/OT
+    document.getElementById("jsonPreview").innerHTML = "";
+    document.getElementById("ptOtPreview").innerHTML = "";
+    document.getElementById("f2fPreview").innerHTML = "";
     showStatus(""); 
     
     // Validations
@@ -646,8 +808,11 @@ async function startAnalysis() {
         jsonOutput.value = prettyJson;
         f2fOutput.value = f2fSummaryText;
         ptOtOutput.value = prettyPtOt; // Display PT/OT
+        renderTextPreview("f2fPreview", f2fSummaryText);
+        renderJsonPreview("ptOtPreview", prettyPtOt);
+        renderJsonPreview("jsonPreview", prettyJson);
         
-        resultArea.style.display = "none";
+        resultArea.style.display = "block";
         // display block of this button saveBtn
         document.getElementById("saveBtn").style.display = "block";
 
