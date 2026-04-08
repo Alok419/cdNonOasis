@@ -365,6 +365,50 @@
         word-break: break-word;
     }
 
+    .audit-table {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .audit-row {
+        display: grid;
+        grid-template-columns: 180px minmax(0, 1fr) 180px;
+        gap: 12px;
+        align-items: stretch;
+    }
+
+    .audit-cell {
+        background: #0a1b25;
+        border: 1px solid #123246;
+        border-radius: 10px;
+        padding: 12px;
+        min-height: 88px;
+    }
+
+    .audit-cell-label {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: #7abaff;
+        margin-bottom: 8px;
+    }
+
+    .audit-cell-value {
+        font-size: 13px;
+        color: #f4fbff;
+        line-height: 1.6;
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+
+    @media (max-width: 720px) {
+        .audit-row {
+            grid-template-columns: 1fr;
+        }
+    }
+
     .result-empty {
         border: 1px dashed #355a74;
         border-radius: 10px;
@@ -689,37 +733,80 @@ function renderJsonPreview(elementId, rawText) {
         return;
     }
 
-    let entries = [];
     if (Array.isArray(parsed)) {
-        parsed.forEach((item, index) => {
-            if (item && typeof item === "object") {
-                Object.entries(item).forEach(([key, value]) => {
-                    entries.push([`${index + 1}. ${key}`, value]);
-                });
+        const records = parsed.filter(item => item !== null && item !== undefined);
+        if (!records.length) {
+            element.innerHTML = '<div class="result-empty">No structured data available.</div>';
+            return;
+        }
+
+        const auditTable = document.createElement("div");
+        auditTable.className = "audit-table";
+
+        records.forEach((item, index) => {
+            if (item && typeof item === "object" && !Array.isArray(item)) {
+                const row = document.createElement("div");
+                row.className = "audit-row";
+
+                const codeValue = item.code ?? item.Code ?? "N/A";
+                const reasonValue = item.reasonSource ?? item.reason ?? item.Reason ?? "N/A";
+                const primaryValue = item.potentialPrimary ?? item.PotentialPrimary ?? item.potentialprimary ?? "N/A";
+
+                row.innerHTML = `
+                    <div class="audit-cell">
+                        <div class="audit-cell-label">Code</div>
+                        <div class="audit-cell-value">${escapeHtml(formatResultValue(codeValue))}</div>
+                    </div>
+                    <div class="audit-cell">
+                        <div class="audit-cell-label">Reason</div>
+                        <div class="audit-cell-value">${escapeHtml(formatResultValue(reasonValue))}</div>
+                    </div>
+                    <div class="audit-cell">
+                        <div class="audit-cell-label">Potential Primary</div>
+                        <div class="audit-cell-value">${escapeHtml(formatResultValue(primaryValue))}</div>
+                    </div>
+                `;
+                auditTable.appendChild(row);
             } else {
-                entries.push([`Item ${index + 1}`, item]);
+                const field = document.createElement("div");
+                field.className = "result-item";
+                field.innerHTML = `
+                    <div class="result-key">Item ${index + 1}</div>
+                    <div class="result-value">${escapeHtml(formatResultValue(item))}</div>
+                `;
+                auditTable.appendChild(field);
             }
         });
-    } else if (parsed && typeof parsed === "object") {
-        entries = Object.entries(parsed);
-    }
-
-    entries = entries.filter(([, value]) => value !== null && value !== undefined && value !== "");
-
-    if (!entries.length) {
-        element.innerHTML = '<div class="result-empty">No structured data available.</div>';
+        element.appendChild(auditTable);
         return;
     }
 
-    entries.forEach(([key, value]) => {
-        const item = document.createElement("div");
-        item.className = "result-item";
-        item.innerHTML = `
-            <div class="result-key">${escapeHtml(key)}</div>
-            <div class="result-value">${escapeHtml(formatResultValue(value))}</div>
-        `;
-        element.appendChild(item);
-    });
+    if (parsed && typeof parsed === "object") {
+        const entries = Object.entries(parsed).filter(([, value]) => value !== null && value !== undefined && value !== "");
+
+        if (!entries.length) {
+            element.innerHTML = '<div class="result-empty">No structured data available.</div>';
+            return;
+        }
+
+        entries.forEach(([key, value]) => {
+            const item = document.createElement("div");
+            item.className = "result-item";
+            item.innerHTML = `
+                <div class="result-key">${escapeHtml(key)}</div>
+                <div class="result-value">${escapeHtml(formatResultValue(value))}</div>
+            `;
+            element.appendChild(item);
+        });
+        return;
+    }
+
+    element.innerHTML = `
+        <div class="result-item">
+            <div class="result-key">Value</div>
+            <div class="result-value">${escapeHtml(formatResultValue(parsed))}</div>
+        </div>
+    `;
 }
 
 
