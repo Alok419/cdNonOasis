@@ -1,6 +1,5 @@
 
 
-
 <!DOCTYPE html>
 <html lang="en">
 
@@ -365,7 +364,7 @@
 
 <body>
     <div class="card">
-        <h2>AI Non-OASISesss Analyzer</h2>
+        <h2>AI Non-OASIS Analyzer</h2>
         <p>Extraction, PT/OT Eval, ICD-10 Audit & F2F</p>
         <div id="loadingMessage" style="text-align:center; color:#4fa3ff; margin-bottom:15px; font-weight:500;">
             Connecting to Salesforce...
@@ -1175,6 +1174,26 @@ For EACH ICD code you output, YOU MUST:
 • Remove any ICD code that violates a rule or creates a contradiction
 
 EVERY RULE MUST BE APPLIED CODE BY CODE, NOT GLOBALLY.
+
+======================================================================
+STRICT HOME HEALTH CODING GUIDELINES & CORRECTIONS
+======================================================================
+1. **Integral Symptoms**: DO NOT assign symptom codes (usually R-codes like R53.81, R26.81, R55, R31.9, R53.1) if they are integral to a confirmed disease condition. Remove them from the final output.
+2. **Symptoms as Primary**: Symptom codes (R-codes) are NEVER acceptable as the Primary Diagnosis.
+3. **Resolved & Inactive Conditions**: DO NOT code conditions that are resolved, no longer manifested, or not receiving active treatment in home health (e.g., acute conditions resolved during inpatient stay like N17.9, J96.01). Change to history codes (Z87.-) if applicable. Exclude problem list items without active home health treatment.
+4. **The "With" Convention & Etiology/Manifestation**: You MUST combine diagnoses when the "with" convention applies.
+   - e.g., HTN + CHF = I13.0
+   - e.g., DM + Polyneuropathy = E11.42
+   - e.g., Dementia + Anxiety
+   - e.g., COPD + Asthma = J44.89
+5. **Post-Surgery & 7th Character**: For home health, trauma, fractures, and external causes must use the 7th character "D" (Subsequent encounter), NOT "A". Use Z47.89 or Z48.812 as primary for aftercare post-surgery where appropriate.
+6. **Primary Diagnosis Validity**: A primary diagnosis MUST have a valid clinical group. Follow the authorization for the focus of care. If the authorized focus is an unacceptable primary (e.g., Low Back Pain), assign a valid related code (e.g., Chronic Pain).
+7. **Sequencing**: Follow strict sequencing rules (e.g., NSTEMI followed by CAD. Sequence HTN, CHF, DM, and CKD appropriately).
+8. **Specificity & Laterality**: Always use the most specific code (e.g., Bilateral hip OA = M16.0, not M16.9).
+9. **Specific Home Health Rules**:
+   - Chemotherapy encounter (Z51.11) is ONLY assigned if the home health clinician administers it.
+   - Wounds caused by cancer: Do not code the wound separately; the neoplasm code is sufficient.
+   - If both COPD (J44.9) and Emphysema (J43.9) are present, code ONLY J43.9.
 
 ======================================================================
 IMPORTANT — ABOUT REASON & SOURCE
