@@ -1,4 +1,6 @@
 
+
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -1253,22 +1255,26 @@ INPUT DIAGNOSES TO AUDIT:
                 tools = [
                     {
                         file_search: {
-                            vector_store_ids: [VECTOR_STORE_ID]
+                            file_search_store_names: [VECTOR_STORE_ID]
                         }
                     }
                 ];
             }
             // New code Here
 
+            const requestBody = {
+                system_instruction: { parts: [{ text: auditorSystemPrompt }] },
+                contents: [{ parts: [{ text: userPrompt }] }]
+            };
+            
+            if (tools.length > 0) {
+                requestBody.tools = tools;
+            }
 
             const response = await fetch(`${GEMINI_RAG_ENDPOINT}?key=${GEMINI_API_KEY}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    system_instruction: { parts: [{ text: auditorSystemPrompt }] },
-                    contents: [{ parts: [{ text: userPrompt }] }],
-                    // tools: toolsConfig
-                })
+                body: JSON.stringify(requestBody)
             });
 
             if (!response.ok) throw new Error("Audit Step Failed");
