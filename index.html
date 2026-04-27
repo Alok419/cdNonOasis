@@ -1,5 +1,6 @@
 
 
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -895,16 +896,22 @@ PRIMARY DIAGNOSIS SELECTION RULES
 2. If the document explicitly labels "Primary Diagnosis", include it.
 3. If multiple diagnoses qualify, return ALL potential primary diagnoses.
 4. Do NOT assume anything. Use only the document text.
+5. Symptom codes (R-codes) and unacceptable conditions MUST NEVER be selected as primary.
+6. If the authorization lists a focus of care, that MUST be prioritized unless it is an unacceptable primary (in which case, select a valid related code).
 
 ====================================================
-DIAGNOSIS EXTRACTION RULES
+DIAGNOSIS EXTRACTION RULES (STRICT HOME HEALTH GUIDELINES)
 ====================================================
-1. Extract ALL diagnoses exactly as written.
+1. Extract ALL active diagnoses exactly as written, EXCEPT:
+   - DO NOT extract symptom codes (e.g., R-codes like R53.81, R26.81, R55, R31.9) if they are integral to a confirmed disease condition.
+   - DO NOT extract conditions that are resolved, no longer manifested, or not receiving active treatment in home health (e.g., acute conditions resolved during an inpatient stay like N17.9, J96.01).
 2. If an ICD code is present next to a diagnosis, return it exactly.
-3. If no ICD code is found, return "".
-4. Remove duplicates.
-5. All diagnoses NOT classified as primary MUST appear under Secondary Diagnoses.
-6. For each diagnosis, return REASON & SOURCE in simple plain text.
+3. Apply the "with" convention when extracting (e.g., combine HTN + CHF, DM + Polyneuropathy).
+4. Ensure 7th character specificity (use "D" instead of "A" for trauma/fractures in home health).
+5. If no ICD code is found, return "".
+6. Remove duplicates.
+7. All valid diagnoses NOT classified as primary MUST appear under Secondary Diagnoses.
+8. For each diagnosis, return REASON & SOURCE in simple plain text.
 
 ====================================================
 STRICT OUTPUT FORMAT (Return ONLY this text)
@@ -1283,7 +1290,13 @@ INPUT DIAGNOSES TO AUDIT:
 
             const requestBody = {
                 system_instruction: { parts: [{ text: auditorSystemPrompt }] },
-                contents: [{ parts: [{ text: userPrompt }] }]
+                contents: [{ parts: [{ text: userPrompt }] }],
+                safetySettings: [
+                    { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
+                    { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+                    { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+                    { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" }
+                ]
             };
             
             if (tools.length > 0) {
@@ -1296,16 +1309,27 @@ INPUT DIAGNOSES TO AUDIT:
                 body: JSON.stringify(requestBody)
             });
 
-            if (!response.ok) throw new Error("Audit Step Failed");
+            if (!response.ok) {
+                const errText = await response.text();
+                throw new Error(`Audit Step Failed: ${response.status} - ${errText}`);
+            }
+            
             const data = await response.json();
 
+            if (!data.candidates || data.candidates.length === 0) {
+                console.error("Gemini API Error or Blocked Response:", data);
+                if (data.promptFeedback && data.promptFeedback.blockReason) {
+                    throw new Error(`Audit Step Blocked by Safety Filters: ${data.promptFeedback.blockReason}`);
+                }
+                throw new Error("Audit Step Failed: No candidates returned from Gemini API. " + JSON.stringify(data));
+            }
 
             currentSessionLogs.push({
                 description: "Audit Extraction",
-                model: data.modelVersion,
-                responseId: data.responseId,
-                promptTokens: data.usageMetadata.promptTokenCount,
-                totalTokens: data.usageMetadata.totalTokenCount
+                model: data.modelVersion || "unknown",
+                responseId: data.responseId || "unknown",
+                promptTokens: data.usageMetadata ? data.usageMetadata.promptTokenCount : 0,
+                totalTokens: data.usageMetadata ? data.usageMetadata.totalTokenCount : 0
             });
 
             return data.candidates[0].content.parts[0].text;
