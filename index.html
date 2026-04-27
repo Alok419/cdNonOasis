@@ -953,12 +953,13 @@ PRIMARY DIAGNOSIS SELECTION RULES
 ====================================================
 DIAGNOSIS EXTRACTION RULES
 ====================================================
-1. Extract ALL diagnoses exactly as written.
-2. If an ICD code is present next to a diagnosis, return it exactly.
-3. If no ICD code is found, return "".
-4. Remove duplicates.
-5. All diagnoses NOT classified as primary MUST appear under Secondary Diagnoses.
-6. For each diagnosis, return REASON & SOURCE in simple plain text.
+1. Extract ALL ACTIVE diagnoses exactly as written.
+2. STRICT RULE: DO NOT extract conditions that are explicitly marked as "Resolved", "History of", "Past Medical History (PMH)", "Family History", "Negative", or "Denied". Only extract CURRENT, ACTIVE conditions.
+3. If an ICD code is present next to a diagnosis, return it exactly.
+4. If no ICD code is found, return "".
+5. Remove duplicates.
+6. All active diagnoses NOT classified as primary MUST appear under Secondary Diagnoses.
+7. For each diagnosis, return REASON & SOURCE in simple plain text.
 
 ====================================================
 STRICT OUTPUT FORMAT (Return ONLY this text)
@@ -985,7 +986,7 @@ Secondary Diagnoses:
 (Repeat for each)
 
 You MUST read every line of every uploaded file.
-Missing any diagnosis is considered an audit failure.
+Missing any active diagnosis is considered an audit failure.
 YOU MUST NOT summarize, assume, or fabricate any diagnosis.
 Every output must directly come from the uploaded files.
     `;
@@ -1002,7 +1003,10 @@ Every output must directly come from the uploaded files.
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ contents: [{ parts: parts }] }),
+            body: JSON.stringify({ 
+              contents: [{ parts: parts }],
+              generationConfig: { temperature: 0.0 }
+            }),
           },
         );
 
@@ -1248,9 +1252,20 @@ If YOU add an ICD due to:
 • Coding Tip rule
 • Sequencing adjustment
 
-→ You MUST generate a NEW reasonSource explaining why the code was added.
+======================================================================
+HOME HEALTH & SPECIFIC CODING GUIDELINES (PATIENT-SPECIFIC EVALUATION)
+======================================================================
+CRITICAL: Apply these rules ONLY IF they are supported by the specific patient's uploaded documentation. Do NOT fabricate conditions (e.g., surgery, chronic pain) just to satisfy a rule.
 
-NO ICD should be returned without a reasonSource.
+1. SYMPTOMS (R-Codes): Evaluate each symptom. If it is integral to a confirmed active disease for this patient, DROP IT. Symptoms CANNOT be the primary diagnosis.
+2. CONVENTION "WITH": Apply the ICD-10 "with" convention. If the patient has related conditions (e.g., DM with neuropathy, HTN with CHF, Dementia with behavioral disturbance), COMBINE them into the appropriate combination code.
+3. ACTIVE TREATMENT REQUIRED: Drop conditions that are resolved, historical, or NOT receiving active treatment in home health. Acute conditions typically resolve during inpatient stays and should be dropped UNLESS the documentation explicitly shows ongoing active treatment in home health.
+4. 7TH CHARACTER RULES: IF the patient has an injury, fracture, or orthopedic aftercare, use the 7th character 'D' (subsequent encounter), not 'A'.
+5. VALID PRIMARY DIAGNOSIS: The primary diagnosis MUST map to a valid Home Health Clinical Group. If the stated focus of care is an invalid symptom, determine the true underlying acceptable primary based ONLY on the patient's actual documentation.
+6. CANCER WOUNDS: IF a wound is explicitly caused by cancer, the neoplasm code is sufficient.
+7. COPD OVERLAPS: IF both COPD and Emphysema are documented for this patient, code ONLY Emphysema. IF both COPD and Asthma are documented, use J44.89.
+8. CHEMOTHERAPY: Exclude Z51.11 UNLESS the documentation states the home health clinician is administering it.
+9. SPECIFICITY: Always use the most specific code available based ONLY on what is written in the chart.
 
 ======================================================================
 FINAL OUTPUT FORMAT (STRICT JSON — DO NOT CHANGE FIELD NAMES)
@@ -1269,27 +1284,26 @@ PROCESS STEPS YOU MUST FOLLOW
 ======================================================================
 
 STEP 1 — Normalize & Validate Diagnoses
-• Extract all diagnoses and ICD codes
-• Validate each ICD using File A
-• Assign correct ICD where missing
-• DROP invalid, incomplete, or conflicting ICDs
-• Ensure potentialPrimary is always true or false
-• If undeterminable → default to false
+• Validate each ICD using File A. Assign correct ICD where missing.
+• DROP invalid or incomplete ICDs.
 
-STEP 2 — Apply Potential Primary Validation
+STEP 2 — Apply Home Health & Symptom Pruning (MANDATORY)
+• DROP all symptoms (R-codes) that are integral to a disease.
+• DROP acute or historical conditions not actively treated in home health.
 
-STEP 3 — Apply Excludes1 (DROP conflicting codes)
+STEP 3 — Apply the "With" Convention
+• COMBINE related diagnoses (e.g., DM, HTN, CHF, Dementia) into combination codes and DROP the individual constituent codes.
 
-STEP 4 — Apply Excludes2 rules if relevant
+STEP 4 — Apply Excludes1 & Excludes2 (DROP conflicting codes)
 
-STEP 5 — Apply Coding Tips from File D (MANDATORY for each code)
+STEP 5 — Apply Coding Tips from File D & 7th Character Rules
 
-STEP 6 — Apply CODE FIRST rules (insert required parent ICDs)
+STEP 6 — Apply CODE FIRST & USE ADDITIONAL CODE rules
 
-STEP 7 — Apply USE ADDITIONAL CODE rules (insert required secondary ICDs)
+STEP 7 — Verify Primary Diagnosis
+• Ensure the potentialPrimary has a valid Clinical Group. If it's a symptom or invalid, reassign potentialPrimary to a valid code (like Z47.89 or Chronic Pain).
 
-STEP 8 — Final compliance validation, sequencing correction,
-          and conflict removal
+STEP 8 — Final compliance validation and sequencing correction.
 
 ======================================================================
 INPUT DIAGNOSES TO AUDIT:
@@ -1300,13 +1314,13 @@ INPUT DIAGNOSES TO AUDIT:
 
         const userPrompt = `INPUT:\n${extractedText}`;
 
-        // let toolsConfig = [];
-        // if (VECTOR_STORE_ID) {
-        //     toolsConfig = [{ retrieval: { vertex_ai_search: { datastore: VECTOR_STORE_ID } } }];
-        // }
+        let toolsConfig = undefined;
 
-        // New code Here
-        let tools = undefined;
+        if (VECTOR_STORE_ID) {
+          // Use Gemini's retrieval tool for Vertex AI Search Datastores
+          toolsConfig = [
+            {
+              retrieval:        let tools = undefined;
 
         if (VECTOR_STORE_ID) {
           tools = [
@@ -1322,6 +1336,7 @@ INPUT DIAGNOSES TO AUDIT:
         const requestBody = {
           system_instruction: { parts: [{ text: auditorSystemPrompt }] },
           contents: [{ parts: [{ text: userPrompt }] }],
+          generationConfig: { temperature: 0.0 }
         };
         
         if (tools) {
@@ -1334,10 +1349,8 @@ INPUT DIAGNOSES TO AUDIT:
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(requestBody),
-          },
-        );
-
-        if (!response.ok) {
+ation/json" },
+                    if (!response.ok) {
           const errText = await response.text();
           console.error("Audit API Error Response:", errText);
           throw new Error(`Audit Step Failed with status ${response.status}: ${errText}`);
@@ -1362,6 +1375,8 @@ INPUT DIAGNOSES TO AUDIT:
           responseId: data.responseId,
           promptTokens: data.usageMetadata?.promptTokenCount || 0,
           totalTokens: data.usageMetadata?.totalTokenCount || 0,
+t,
+          totalTokens: data.usageMetadata.totalTokenCount,
         });
 
         return data.candidates[0].content.parts[0].text;
