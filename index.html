@@ -361,7 +361,7 @@
 
   <body>
     <div class="card">
-      <h2>AI Non-OASISessss Analyzer</h2>
+      <h2>AI Non-OASIS Analyzer</h2>
       <p>Extraction, PT/OT Eval, ICD-10 Audit & F2F</p>
       <div
         id="loadingMessage"
@@ -1337,15 +1337,31 @@ INPUT DIAGNOSES TO AUDIT:
           },
         );
 
-        if (!response.ok) throw new Error("Audit Step Failed");
+        if (!response.ok) {
+          const errText = await response.text();
+          console.error("Audit API Error Response:", errText);
+          throw new Error(`Audit Step Failed with status ${response.status}: ${errText}`);
+        }
+        
         const data = await response.json();
+
+        if (!data.candidates || data.candidates.length === 0) {
+          console.error("Audit API returned no candidates. Full response:", data);
+          let reason = "AI returned an empty response. Check console for details.";
+          if (data.promptFeedback) {
+            reason = "Blocked by Safety Filters: " + JSON.stringify(data.promptFeedback);
+          } else if (data.error) {
+            reason = "API Error: " + data.error.message;
+          }
+          throw new Error(reason);
+        }
 
         currentSessionLogs.push({
           description: "Audit Extraction",
           model: data.modelVersion,
           responseId: data.responseId,
-          promptTokens: data.usageMetadata.promptTokenCount,
-          totalTokens: data.usageMetadata.totalTokenCount,
+          promptTokens: data.usageMetadata?.promptTokenCount || 0,
+          totalTokens: data.usageMetadata?.totalTokenCount || 0,
         });
 
         return data.candidates[0].content.parts[0].text;
