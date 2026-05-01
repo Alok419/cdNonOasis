@@ -467,8 +467,6 @@
                 GEMINI_API_KEY = event.data.apiKey;
                 SF_SESSION_ID = event.data.sessionId;
                 SF_BASE_URL = event.data.baseUrl;
-                // VECTOR_STORE_ID = event.data.vectorStoreId;
-                VECTOR_STORE_ID = event.data.geminiFileStore;
 
                 document.getElementById("loadingMessage").style.display = "none";
                 document.getElementById("mainControls").style.display = "block";
@@ -631,54 +629,34 @@
                     selectedFiles.map(file => readFileAsBase64(file))
                 );
 
-                // --- STEP 2: PARALLEL AI EXECUTION (Diagnosis, F2F, and PT/OT) ---
-                updateProgress(progressValue, "AI Running: Vision, F2F, and PT/OT Extraction...");
+                // --- STEP 2: PARALLEL AI EXECUTION (Elite Auditor, F2F, and PT/OT) ---
+                updateProgress(progressValue, "AI Running: Elite Auditor, F2F, and PT/OT Extraction...");
 
                 const [rawExtraction, f2fSummaryText, ptOtResult] = await Promise.all([
-                    callGeminiVisionMulti(fileDataArray), // Diagnosis
+                    callGeminiVisionMulti(fileDataArray), // Elite Auditor (Extraction + Audit combined)
                     callGeminiF2FSummary(fileDataArray),  // F2F
                     runPtOtExtraction(fileDataArray)      // PT/OT (New)
                 ]);
 
-                // --- STEP 3: AUDIT DIAGNOSES (BATCH PROCESSING) ---
-                updateProgress(progressValue, "AI Auditor: Batch Validating ICD-10 Rules...");
-                
-                let extractedDiagnoses = [];
-                try {
-                    const cleanRaw = rawExtraction.replace(/```json/g, "").replace(/```/g, "").trim();
-                    extractedDiagnoses = JSON.parse(cleanRaw);
-                } catch (e) {
-                    console.error("Failed to parse Vision output as JSON:", e);
-                }
-
-                const auditedDiagnoses = [];
-                // Process sequentially to avoid TPM quota exhaustion
-                for (let i = 0; i < extractedDiagnoses.length; i++) {
-                    const diag = extractedDiagnoses[i];
-                    updateProgress(progressValue, `AI Auditor: Validating Code ${i + 1} of ${extractedDiagnoses.length}...`);
-                    
-                    try {
-                        const auditResult = await callGeminiAuditor(JSON.stringify(diag));
-                        
-                        const jsonMatch = auditResult.match(/\[[\s\S]*\]/);
-                        if (jsonMatch) {
-                            auditedDiagnoses.push(...JSON.parse(jsonMatch[0]));
-                        } else {
-                            const cleanRes = auditResult.replace(/```json/g, "").replace(/```/g, "").trim();
-                            auditedDiagnoses.push(...JSON.parse(cleanRes));
-                        }
-                    } catch (e) {
-                        console.error(`Failed to process or parse Auditor output for diagnosis ${i + 1}:`, e);
-                        // Push the original un-audited code as a fallback so we don't lose data
-                        auditedDiagnoses.push(diag);
-                    }
-                }
-
                 CACHED_AI_TIME = Math.floor((Date.now() - startTime) / 1000);
 
-                // --- STEP 4: DISPLAY RESULTS ---
+                // --- STEP 3: DISPLAY RESULTS ---
                 // 1. Diagnosis JSON
-                let prettyJson = JSON.stringify(auditedDiagnoses, null, 4);
+                let prettyJson = rawExtraction;
+                try {
+                    const cleanJson = rawExtraction.match(/\{[\s\S]*\}/);
+                    if (cleanJson) {
+                        prettyJson = JSON.stringify(JSON.parse(cleanJson[0]), null, 4);
+                    } else {
+                        // Fallback in case it returns an array instead of object
+                        const cleanArray = rawExtraction.match(/\[[\s\S]*\]/);
+                        if (cleanArray) {
+                            prettyJson = JSON.stringify(JSON.parse(cleanArray[0]), null, 4);
+                        }
+                    }
+                } catch (e) {
+                    console.error("Failed to parse Elite Auditor output:", e);
+                }
 
                 // 2. PT/OT JSON
                 let prettyPtOt = ptOtResult;
@@ -893,62 +871,59 @@ Summarize ONLY what is written. Never fabricate or assume.
             return text.replace(/\*/g, "").trim();
         }
 
-        // --- 2. Diagnosis Extraction (Raw) ---
+        // --- 2. Elite CDI Auditor (Combined Extraction & Audit) ---
         async function callGeminiVisionMulti(fileDataArray) {
             const extractionPrompt = `
-You are a clinical document extraction auditor.
+Role: You are an elite, dual-certified Clinical Documentation Improvement (CDI) Specialist and Medical Auditor.
 
-You MUST perform a FULL scan of ALL uploaded files before generating any output.
-Treat ALL files as ONE combined patient chart.
+Objective: Read the provided clinical text. Extract all documented conditions, then rigorously apply ICD-10-CM coding guidelines (Combinations, Excludes1/2, Sequencing) to output a finalized, compliant code list.
 
-Your job:
-- Extract diagnoses EXACTLY as written
-- Identify potential primary diagnoses
-- Provide justification for each selected diagnosis
-- Specify the exact location (page, section, or line reference) where it was found
+You MUST execute this task in four strict steps. Do your reasoning silently before generating the JSON output:
 
-====================================================
-PRIMARY DIAGNOSIS SELECTION RULES
-====================================================
-1. Identify diagnoses that are clinically primary based on:
-   - Reason for visit
-   - Acute presentation
-   - Major treatment focus
-   - Explicitly labeled primary diagnoses
-   - Repeated emphasis
-2. If the document explicitly labels "Primary Diagnosis", include it.
-3. If multiple diagnoses qualify, return ALL potential primary diagnoses.
-4. Do NOT assume anything. Use only the document text.
-5. Symptom codes (R-codes) and unacceptable conditions MUST NEVER be selected as primary.
-6. If the authorization lists a focus of care, that MUST be prioritized unless it is an unacceptable primary (in which case, select a valid related code).
+Step 1: Active Extraction (Gather)
+Extract ALL active, relevant documented medical conditions, symptoms, and histories. Map them to their correct raw ICD-10 codes.
+CRITICAL EXTRACTION RULES:
+- Extract ONLY active diagnoses. DO NOT extract conditions that are explicitly resolved, healed, or no longer receiving active treatment (e.g., an acute fracture that is healed, or treated infections).
+- DO NOT extract symptom codes (R-codes) if they are integral to a confirmed active disease condition.
+- Do not infer diagnoses from medications alone.
 
-====================================================
-DIAGNOSIS EXTRACTION RULES (STRICT HOME HEALTH GUIDELINES)
-====================================================
-1. Extract ALL active diagnoses exactly as written, EXCEPT:
-   - DO NOT extract symptom codes (e.g., R-codes like R53.81, R26.81, R55, R31.9) if they are integral to a confirmed disease condition.
-   - DO NOT extract conditions that are resolved, no longer manifested, or not receiving active treatment in home health (e.g., acute conditions resolved during an inpatient stay like N17.9, J96.01).
-2. If an ICD code is present next to a diagnosis, return it exactly.
-3. Apply the "with" convention when extracting (e.g., combine HTN + CHF, DM + Polyneuropathy).
-4. Ensure 7th character specificity (use "D" instead of "A" for trauma/fractures in home health).
-5. If no ICD code is found, return "".
-6. Remove duplicates.
-7. All valid diagnoses NOT classified as primary MUST appear under Secondary Diagnoses.
-8. For each diagnosis, return REASON & SOURCE in simple plain text.
+Step 2: Combination Coding (Merge)
+Review your raw list. If two or more codes must be combined per ICD-10 guidelines (e.g., an underlying disease and a manifestation, or Alzheimer's with behavioral disturbances like psychosis/depression), merge them into the appropriate combination code. Drop the individual codes.
+
+Step 3: Excludes1 & Excludes2 Scrubbing (Conflict Resolution)
+Review the list for mutually exclusive codes.
+
+Excludes1: If two codes cannot be coded together (e.g., a general symptom like 'Weakness' alongside a specific diagnosis like 'Muscle Weakness'), drop the less specific or precluded code.
+
+Excludes2: Note if two codes can coexist, but ensure they are both clinically supported.
+
+Step 4: Sequencing (Order)
+Order the surviving codes. Place the primary reason for admission/encounter first. Apply "Code First" and "Use Additional Code" etiology/manifestation sequencing rules.
+
+Output: Return the result strictly adhering to the requested JSON schema. The JSON must contain your audit trail showing the raw codes, the rules you applied, and the final sequenced list.
 
 ====================================================
-STRICT OUTPUT FORMAT (Return ONLY a JSON array)
+STRICT OUTPUT FORMAT (Return ONLY a JSON object)
 ====================================================
-Output a single JSON array containing all extracted diagnoses. Do not include markdown formatting or the \`\`\`json block. Just the raw JSON.
+Output a single JSON object containing the audit trail and final codes. Do not include markdown formatting or the \`\`\`json block. Just the raw JSON.
 
-[
-  {
-    "diagnosis": "<exact diagnosis text>",
-    "icdCode": "<extracted ICD code or empty string>",
-    "potentialPrimary": true or false,
-    "reasonSource": "<why selected and where it was found>"
-  }
-]
+{
+  "auditTrail": {
+    "step1_rawExtraction": ["<list of raw findings>"],
+    "step2_combination": ["<list of combination logic applied>"],
+    "step3_scrubbing": ["<list of Excludes rules applied and codes dropped>"],
+    "step4_sequencing": ["<logic for primary selection and code first sequencing>"]
+  },
+  "finalCodes": [
+    {
+      "code": "<extracted ICD code or empty string>",
+      "diagnosis": "<exact diagnosis text>",
+      "potentialPrimary": true or false,
+      "reasonSource": "<why selected and where it was found in the text>"
+    }
+  ]
+}
+
 
 You MUST read every line of every uploaded file.
 Missing any diagnosis is considered an audit failure.
@@ -1150,169 +1125,7 @@ Every output must directly come from the uploaded files.
             return data.candidates[0].content.parts[0].text;
         }
 
-        // --- 4. RAG Auditor ---
-        async function callGeminiAuditor(extractedText) {
-            const auditorSystemPrompt = `
-You are an Expert ICD-10-CM Medical Coding Auditor and Compliance Officer.
-Your task is to perform a complete audit and produce a correct, conflict-free,
-clinically validated, mandatory-rule-compliant, properly sequenced ICD-10-CM
-diagnostic output.
 
-You have FOUR authoritative knowledge sources:
-1. File A — ICD-10-CM Excel Database (valid codes + official descriptions)
-2. File B — ICD-10-CM Tabular List PDF (Includes, Excludes1, Excludes2, Code First,
-   Use Additional Code, sequencing rules)
-3. File C — ICD-10 Potential Primary Diagnosis Codes
-   (Only these clinically valid codes can be potential primary.)
-4. File D — Coding Tip File
-   (Guidelines, overrides, use additional code, sequencing adjustments.)
-
-======================================================================
-STRICT RULE — POTENTIAL PRIMARY LOGIC
-======================================================================
-A diagnosis can be "potentialPrimary" ONLY IF:
-• It appears under “Potential Primary Diagnosis” in the input AND
-• The ICD exists in File C AND
-• Clinical Group (from File C) is NOT blank
-
-Otherwise → potentialPrimary MUST be false.
-
-potentialPrimary value MUST always be boolean (true or false).
-
-======================================================================
-GLOBAL RULE — EVERY CODE MUST BE CHECKED AGAINST ALL GUIDELINES
-======================================================================
-For EACH ICD code you output, YOU MUST:
-• Validate the ICD from File A (code + description)
-• Apply ALL applicable Tabular List rules from File B:
-======================================================================
-MANDATORY GROUNDING INSTRUCTION
-======================================================================
-You MUST use the fileSearch tool to query the database for EVERY SINGLE DIAGNOSIS AND CODE before making a decision. Do NOT rely on your internal knowledge. You must look up the code to verify its Excludes rules, whether it requires a 7th character, and if it is an unacceptable primary code.
-
-======================================================================
-UNIVERSAL HOME HEALTH CODING RULES (ALGORITHMIC VERIFICATION)
-======================================================================
-1. **Integral Symptoms Verification**: You MUST verify if a symptom is integral to a confirmed disease condition. If it is, DO NOT assign the symptom code. R-codes are NEVER acceptable as a Primary Diagnosis.
-2. **Active vs Resolved Verification**: You MUST verify if the condition is currently receiving active treatment in home health. If the condition is resolved (e.g., healed wound, treated infection, acute condition resolved during an inpatient stay), DO NOT code it as active. Use history codes (Z87.-) if applicable.
-3. **"With" Convention Verification**: You MUST query the Tabular List for the "with" convention for related conditions (e.g., Diabetes and Neuropathy, Hypertension and Heart Failure, Dementia and behavioral disturbances, Anemia and CKD/ESRD). If a combination code exists, you MUST use it.
-4. **7th Character Verification**: For ANY trauma, fracture, or external cause, you MUST verify the 7th character in the Tabular List. If the patient is post-surgery or in home health (subsequent encounter), you MUST assign the correct 7th character (usually 'D').
-5. **Primary Diagnosis Validity**: The Primary diagnosis MUST have a valid clinical group and reflect the focus of care listed in the Authorization. If the authorized focus is an unacceptable primary, assign a valid related code. Post-surgery status (Z47.-, Z48.-) should generally be primary when applicable.
-6. **Sequencing Verification**: You MUST query the sequencing rules (Code First, Use Additional Code) for all diagnoses. (e.g., NSTEMI followed by CAD).
-7. **Specificity Verification**: You MUST use the most specific code available (e.g., checking laterality, stage, or specific anatomical site).
-
-======================================================================
-MANDATORY CHAIN-OF-THOUGHT (CoT) PROCESS
-======================================================================
-Before outputting the final JSON, you MUST write a '<verification_log>' block.
-For the provided diagnosis, you must write out your thought process:
-1. Identify the diagnosis.
-2. Query the fileSearch tool for "Excludes1", "With", and "7th character" rules for this diagnosis.
-3. State whether the code is an integral symptom, a resolved condition, or valid.
-4. State the final ICD-10 code and reasoning.
-
-Example:
-<verification_log>
-- Diagnosis: Hypertension and Heart Failure.
-- Querying Rules: Checking "With" convention for HTN and CHF.
-- Result: Tabular list states HTN with Heart Failure maps to I13.0.
-- Status: Valid, combined into I13.0.
-</verification_log>
-
-After the '<verification_log>', output the final JSON array.
-
-======================================================================
-FINAL OUTPUT FORMAT (STRICT JSON — DO NOT CHANGE FIELD NAMES)
-======================================================================
-
-<verification_log>
-...your step-by-step reasoning...
-</verification_log>
-
-\`\`\`json
-[
-  {
-    "code": "<ICD from File A>",
-    "reasonSource": "<Original text OR rule-based explanation in simple plain text>",
-    "potentialPrimary": true or false
-  }
-]
-\`\`\`
-
-======================================================================
-INPUT DIAGNOSIS TO AUDIT:
-======================================================================
-
-<medicalExtractText>
-    `;
-
-            const userPrompt = `INPUT:\n${extractedText}`;
-
-            // let toolsConfig = [];
-            // if (VECTOR_STORE_ID) {
-            //     toolsConfig = [{ retrieval: { vertex_ai_search: { datastore: VECTOR_STORE_ID } } }];
-            // }
-
-            // New code Here
-            let tools = [];
-
-            if (VECTOR_STORE_ID) {
-                tools = [
-                    {
-                        fileSearch: {
-                            fileSearchStoreNames: [VECTOR_STORE_ID]
-                        }
-                    }
-                ];
-            }
-            // New code Here
-
-            const requestBody = {
-                system_instruction: { parts: [{ text: auditorSystemPrompt }] },
-                contents: [{ parts: [{ text: userPrompt }] }],
-                safetySettings: [
-                    { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
-                    { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
-                    { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
-                    { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" }
-                ]
-            };
-            
-            if (tools.length > 0) {
-                requestBody.tools = tools;
-            }
-
-            const response = await fetch(`${GEMINI_RAG_ENDPOINT}?key=${GEMINI_API_KEY}`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(requestBody)
-            });
-
-            if (!response.ok) {
-                const errText = await response.text();
-                throw new Error(`Audit Step Failed: ${response.status} - ${errText}`);
-            }
-            
-            const data = await response.json();
-
-            if (!data.candidates || data.candidates.length === 0) {
-                console.error("Gemini API Error or Blocked Response:", data);
-                if (data.promptFeedback && data.promptFeedback.blockReason) {
-                    throw new Error(`Audit Step Blocked by Safety Filters: ${data.promptFeedback.blockReason}`);
-                }
-                throw new Error("Audit Step Failed: No candidates returned from Gemini API. " + JSON.stringify(data));
-            }
-
-            currentSessionLogs.push({
-                description: "Audit Extraction",
-                model: data.modelVersion || "unknown",
-                responseId: data.responseId || "unknown",
-                promptTokens: data.usageMetadata ? data.usageMetadata.promptTokenCount : 0,
-                totalTokens: data.usageMetadata ? data.usageMetadata.totalTokenCount : 0
-            });
-
-            return data.candidates[0].content.parts[0].text;
-        }
 
         /* =========================================================
            HELPERS
