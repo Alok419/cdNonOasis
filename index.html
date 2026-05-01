@@ -668,7 +668,7 @@
                 f2fOutput.value = f2fSummaryText;
                 ptOtOutput.value = prettyPtOt; // Display PT/OT
 
-                resultArea.style.display = "none";
+                resultArea.style.display = "block";
                 // display block of this button saveBtn
                 document.getElementById("saveBtn").style.display = "block";
 
@@ -1183,6 +1183,11 @@ For EACH ICD code you output, YOU MUST:
 EVERY RULE MUST BE APPLIED CODE BY CODE, NOT GLOBALLY.
 
 ======================================================================
+MANDATORY GROUNDING INSTRUCTION
+======================================================================
+You MUST use the fileSearch tool to query the database for EVERY SINGLE DIAGNOSIS AND CODE before making a decision. Do NOT rely on your internal knowledge. You must look up the code to verify its Excludes rules, whether it requires a 7th character, and if it is an unacceptable primary code.
+
+======================================================================
 STRICT HOME HEALTH CODING GUIDELINES & CORRECTIONS
 ======================================================================
 1. **Integral Symptoms**: DO NOT assign symptom codes (usually R-codes like R53.81, R26.81, R55, R31.9, R53.1) if they are integral to a confirmed disease condition. Remove them from the final output.
@@ -1280,8 +1285,8 @@ INPUT DIAGNOSES TO AUDIT:
             if (VECTOR_STORE_ID) {
                 tools = [
                     {
-                        file_search: {
-                            file_search_store_names: [VECTOR_STORE_ID]
+                        fileSearch: {
+                            fileSearchStoreNames: [VECTOR_STORE_ID]
                         }
                     }
                 ];
