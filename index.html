@@ -652,21 +652,25 @@
                 }
 
                 const auditedDiagnoses = [];
-                // Process in parallel (Batching)
-                const auditPromises = extractedDiagnoses.map(diag => callGeminiAuditor(JSON.stringify(diag)));
-                const auditResults = await Promise.all(auditPromises);
-
-                for (let i = 0; i < auditResults.length; i++) {
+                // Process sequentially to avoid TPM quota exhaustion
+                for (let i = 0; i < extractedDiagnoses.length; i++) {
+                    const diag = extractedDiagnoses[i];
+                    updateProgress(progressValue, `AI Auditor: Validating Code ${i + 1} of ${extractedDiagnoses.length}...`);
+                    
                     try {
-                        const jsonMatch = auditResults[i].match(/\[[\s\S]*\]/);
+                        const auditResult = await callGeminiAuditor(JSON.stringify(diag));
+                        
+                        const jsonMatch = auditResult.match(/\[[\s\S]*\]/);
                         if (jsonMatch) {
                             auditedDiagnoses.push(...JSON.parse(jsonMatch[0]));
                         } else {
-                            const cleanRes = auditResults[i].replace(/```json/g, "").replace(/```/g, "").trim();
+                            const cleanRes = auditResult.replace(/```json/g, "").replace(/```/g, "").trim();
                             auditedDiagnoses.push(...JSON.parse(cleanRes));
                         }
                     } catch (e) {
-                        console.error("Failed to parse Auditor output:", e);
+                        console.error(`Failed to process or parse Auditor output for diagnosis ${i + 1}:`, e);
+                        // Push the original un-audited code as a fallback so we don't lose data
+                        auditedDiagnoses.push(diag);
                     }
                 }
 
