@@ -1,3 +1,6 @@
+
+
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -637,22 +640,41 @@
                     runPtOtExtraction(fileDataArray)      // PT/OT (New)
                 ]);
 
-                // --- STEP 3: AUDIT DIAGNOSES ---
-                updateProgress(progressValue, "AI Auditor: Validating ICD-10 Rules...");
-                const finalAuditJson = await callGeminiAuditor(rawExtraction);
+                // --- STEP 3: AUDIT DIAGNOSES (BATCH PROCESSING) ---
+                updateProgress(progressValue, "AI Auditor: Batch Validating ICD-10 Rules...");
+                
+                let extractedDiagnoses = [];
+                try {
+                    const cleanRaw = rawExtraction.replace(/```json/g, "").replace(/```/g, "").trim();
+                    extractedDiagnoses = JSON.parse(cleanRaw);
+                } catch (e) {
+                    console.error("Failed to parse Vision output as JSON:", e);
+                }
+
+                const auditedDiagnoses = [];
+                // Process in parallel (Batching)
+                const auditPromises = extractedDiagnoses.map(diag => callGeminiAuditor(JSON.stringify(diag)));
+                const auditResults = await Promise.all(auditPromises);
+
+                for (let i = 0; i < auditResults.length; i++) {
+                    try {
+                        const jsonMatch = auditResults[i].match(/\[[\s\S]*\]/);
+                        if (jsonMatch) {
+                            auditedDiagnoses.push(...JSON.parse(jsonMatch[0]));
+                        } else {
+                            const cleanRes = auditResults[i].replace(/```json/g, "").replace(/```/g, "").trim();
+                            auditedDiagnoses.push(...JSON.parse(cleanRes));
+                        }
+                    } catch (e) {
+                        console.error("Failed to parse Auditor output:", e);
+                    }
+                }
 
                 CACHED_AI_TIME = Math.floor((Date.now() - startTime) / 1000);
 
                 // --- STEP 4: DISPLAY RESULTS ---
                 // 1. Diagnosis JSON
-                let prettyJson = finalAuditJson;
-                try {
-                    const cleanJson = finalAuditJson
-                        .replace(/```json/g, "")
-                        .replace(/```/g, "")
-                        .trim();
-                    prettyJson = JSON.stringify(JSON.parse(cleanJson), null, 4);
-                } catch { }
+                let prettyJson = JSON.stringify(auditedDiagnoses, null, 4);
 
                 // 2. PT/OT JSON
                 let prettyPtOt = ptOtResult;
@@ -665,7 +687,7 @@
                 f2fOutput.value = f2fSummaryText;
                 ptOtOutput.value = prettyPtOt; // Display PT/OT
 
-                resultArea.style.display = "none";
+                resultArea.style.display = "block";
                 // display block of this button saveBtn
                 document.getElementById("saveBtn").style.display = "block";
 
@@ -911,28 +933,18 @@ DIAGNOSIS EXTRACTION RULES (STRICT HOME HEALTH GUIDELINES)
 8. For each diagnosis, return REASON & SOURCE in simple plain text.
 
 ====================================================
-STRICT OUTPUT FORMAT (Return ONLY this text)
+STRICT OUTPUT FORMAT (Return ONLY a JSON array)
 ====================================================
+Output a single JSON array containing all extracted diagnoses. Do not include markdown formatting or the \`\`\`json block. Just the raw JSON.
 
-SECTION 1: PATIENT DIAGNOSIS DETAILS
-Patient Name: <name or NOT FOUND>
-Age: <age or NOT FOUND>
-
-Potential Primary Diagnoses:
-- Diagnosis: <diagnosis>
-  ICD Code: <code>
-  Reason & Source:
-  <why selected>
-  <page/section/snippet found>
-(Repeat for each)
-
-Secondary Diagnoses:
-- Diagnosis: <diagnosis>
-  ICD Code: <code>
-  Reason & Source:
-  <snippet or evidence>
-  <page/section found>
-(Repeat for each)
+[
+  {
+    "diagnosis": "<exact diagnosis text>",
+    "icdCode": "<extracted ICD code or empty string>",
+    "potentialPrimary": true or false,
+    "reasonSource": "<why selected and where it was found>"
+  }
+]
 
 You MUST read every line of every uploaded file.
 Missing any diagnosis is considered an audit failure.
@@ -1169,48 +1181,51 @@ GLOBAL RULE — EVERY CODE MUST BE CHECKED AGAINST ALL GUIDELINES
 For EACH ICD code you output, YOU MUST:
 • Validate the ICD from File A (code + description)
 • Apply ALL applicable Tabular List rules from File B:
-STRICT HOME HEALTH CODING GUIDELINES & CORRECTIONS
 ======================================================================
-1. **Integral Symptoms**: DO NOT assign symptom codes (usually R-codes like R53.81, R26.81, R55, R31.9, R53.1) if they are integral to a confirmed disease condition. Remove them from the final output.
-2. **Symptoms as Primary**: Symptom codes (R-codes) are NEVER acceptable as the Primary Diagnosis.
-3. **Resolved & Inactive Conditions**: DO NOT code conditions that are resolved, no longer manifested, or not receiving active treatment in home health (e.g., acute conditions resolved during inpatient stay like N17.9, J96.01). Change to history codes (Z87.-) if applicable. Exclude problem list items without active home health treatment.
-4. **The "With" Convention & Etiology/Manifestation**: You MUST combine diagnoses when the "with" convention applies.
-   - e.g., HTN + CHF = I13.0
-   - e.g., DM + Polyneuropathy = E11.42
-   - e.g., Dementia + Anxiety
-   - e.g., COPD + Asthma = J44.89
-5. **Post-Surgery & 7th Character**: For home health, trauma, fractures, and external causes must use the 7th character "D" (Subsequent encounter), NOT "A". Use Z47.89 or Z48.812 as primary for aftercare post-surgery where appropriate.
-6. **Primary Diagnosis Validity**: A primary diagnosis MUST have a valid clinical group. Follow the authorization for the focus of care. If the authorized focus is an unacceptable primary (e.g., Low Back Pain), assign a valid related code (e.g., Chronic Pain).
-7. **Sequencing**: Follow strict sequencing rules (e.g., NSTEMI followed by CAD. Sequence HTN, CHF, DM, and CKD appropriately).
-8. **Specificity & Laterality**: Always use the most specific code (e.g., Bilateral hip OA = M16.0, not M16.9).
-9. **Specific Home Health Rules**:
-   - Chemotherapy encounter (Z51.11) is ONLY assigned if the home health clinician administers it.
-   - Wounds caused by cancer: Do not code the wound separately; the neoplasm code is sufficient.
-   - If both COPD (J44.9) and Emphysema (J43.9) are present, code ONLY J43.9.
+MANDATORY GROUNDING INSTRUCTION
+======================================================================
+You MUST use the fileSearch tool to query the database for EVERY SINGLE DIAGNOSIS AND CODE before making a decision. Do NOT rely on your internal knowledge. You must look up the code to verify its Excludes rules, whether it requires a 7th character, and if it is an unacceptable primary code.
 
 ======================================================================
-IMPORTANT — ABOUT REASON & SOURCE
+UNIVERSAL HOME HEALTH CODING RULES (ALGORITHMIC VERIFICATION)
 ======================================================================
-For each diagnosis in the input text:
-• Extract the exact "Reason & Source" block
-• The returned JSON must include reasonSource EXACTLY as provided
-• Keep reasonSource in simple plain text
-• Do NOT use single quotes or double quotes inside reasonSource
+1. **Integral Symptoms Verification**: You MUST verify if a symptom is integral to a confirmed disease condition. If it is, DO NOT assign the symptom code. R-codes are NEVER acceptable as a Primary Diagnosis.
+2. **Active vs Resolved Verification**: You MUST verify if the condition is currently receiving active treatment in home health. If the condition is resolved (e.g., healed wound, treated infection, acute condition resolved during an inpatient stay), DO NOT code it as active. Use history codes (Z87.-) if applicable.
+3. **"With" Convention Verification**: You MUST query the Tabular List for the "with" convention for related conditions (e.g., Diabetes and Neuropathy, Hypertension and Heart Failure, Dementia and behavioral disturbances, Anemia and CKD/ESRD). If a combination code exists, you MUST use it.
+4. **7th Character Verification**: For ANY trauma, fracture, or external cause, you MUST verify the 7th character in the Tabular List. If the patient is post-surgery or in home health (subsequent encounter), you MUST assign the correct 7th character (usually 'D').
+5. **Primary Diagnosis Validity**: The Primary diagnosis MUST have a valid clinical group and reflect the focus of care listed in the Authorization. If the authorized focus is an unacceptable primary, assign a valid related code. Post-surgery status (Z47.-, Z48.-) should generally be primary when applicable.
+6. **Sequencing Verification**: You MUST query the sequencing rules (Code First, Use Additional Code) for all diagnoses. (e.g., NSTEMI followed by CAD).
+7. **Specificity Verification**: You MUST use the most specific code available (e.g., checking laterality, stage, or specific anatomical site).
 
-If YOU add an ICD due to:
-• Code First rule
-• Use Additional Code rule
-• Coding Tip rule
-• Sequencing adjustment
+======================================================================
+MANDATORY CHAIN-OF-THOUGHT (CoT) PROCESS
+======================================================================
+Before outputting the final JSON, you MUST write a `<verification_log>` block.
+For the provided diagnosis, you must write out your thought process:
+1. Identify the diagnosis.
+2. Query the fileSearch tool for "Excludes1", "With", and "7th character" rules for this diagnosis.
+3. State whether the code is an integral symptom, a resolved condition, or valid.
+4. State the final ICD-10 code and reasoning.
 
-→ You MUST generate a NEW reasonSource explaining why the code was added.
+Example:
+<verification_log>
+- Diagnosis: Hypertension and Heart Failure.
+- Querying Rules: Checking "With" convention for HTN and CHF.
+- Result: Tabular list states HTN with Heart Failure maps to I13.0.
+- Status: Valid, combined into I13.0.
+</verification_log>
 
-NO ICD should be returned without a reasonSource.
+After the `<verification_log>`, output the final JSON array.
 
 ======================================================================
 FINAL OUTPUT FORMAT (STRICT JSON — DO NOT CHANGE FIELD NAMES)
 ======================================================================
 
+<verification_log>
+...your step-by-step reasoning...
+</verification_log>
+
+\`\`\`json
 [
   {
     "code": "<ICD from File A>",
@@ -1218,36 +1233,10 @@ FINAL OUTPUT FORMAT (STRICT JSON — DO NOT CHANGE FIELD NAMES)
     "potentialPrimary": true or false
   }
 ]
+\`\`\`
 
 ======================================================================
-PROCESS STEPS YOU MUST FOLLOW
-======================================================================
-
-STEP 1 — Normalize & Validate Diagnoses
-• Extract all diagnoses and ICD codes
-• Validate each ICD using File A
-• Assign correct ICD where missing
-• DROP invalid, incomplete, or conflicting ICDs
-• Ensure potentialPrimary is always true or false
-• If undeterminable → default to false
-
-STEP 2 — Apply Potential Primary Validation
-
-STEP 3 — Apply Excludes1 (DROP conflicting codes)
-
-STEP 4 — Apply Excludes2 rules if relevant
-
-STEP 5 — Apply Coding Tips from File D (MANDATORY for each code)
-
-STEP 6 — Apply CODE FIRST rules (insert required parent ICDs)
-
-STEP 7 — Apply USE ADDITIONAL CODE rules (insert required secondary ICDs)
-
-STEP 8 — Final compliance validation, sequencing correction,
-          and conflict removal
-
-======================================================================
-INPUT DIAGNOSES TO AUDIT:
+INPUT DIAGNOSIS TO AUDIT:
 ======================================================================
 
 <medicalExtractText>
@@ -1266,8 +1255,8 @@ INPUT DIAGNOSES TO AUDIT:
             if (VECTOR_STORE_ID) {
                 tools = [
                     {
-                        file_search: {
-                            file_search_store_names: [VECTOR_STORE_ID]
+                        fileSearch: {
+                            fileSearchStoreNames: [VECTOR_STORE_ID]
                         }
                     }
                 ];
