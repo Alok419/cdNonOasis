@@ -1,3 +1,6 @@
+
+
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -927,30 +930,33 @@ Output: Return the result strictly adhering to the requested JSON schema. The JS
 
 ====================================================
 STRICT OUTPUT FORMAT (Return ONLY a JSON object)
-Output a single JSON object containing the audit trail and final codes. Do not include markdown formatting or the ```json block.Just the raw JSON.
+Output a single JSON object containing the audit trail and final codes. Do not include markdown formatting or the \`\`\`json block. Just the raw JSON.
 
-                {
-                    "auditTrail": {
-                        "step1_rawExtraction": [""],
-                        "step2_combinationsAndInstructions": ["<list of 'Combination', 'Code first', 'Use additional code', or 'Code also' logic applied>"],
-                        "step3_scrubbing": ["<list of Excludes1/2 rules applied and codes dropped>"],
-                        "step4_sequencing": ["<logic for principal diagnosis selection and exact etiology/manifestation ordering>"]
-                    },
-                    "finalCodes": [
-                        {
-                            "code": "",
-                            "diagnosis": "",
-                            "potentialPrimary": true or false,
-                            "reasonSource": "<why selected, specific guidelines applied, and where it was found in the text>"
+{
+"auditTrail": {
+"step1_rawExtraction": [""],
+"step2_combinationsAndInstructions": ["<list of 'Combination', 'Code first', 'Use additional code', or 'Code also' logic applied>"],
+"step3_scrubbing": ["<list of Excludes1/2 rules applied and codes dropped>"],
+"step4_sequencing": ["<logic for principal diagnosis selection and exact etiology/manifestation ordering>"]
+},
+"finalCodes": [
+{
+"code": "",
+"diagnosis": "",
+"potentialPrimary": true or false,
+"reasonSource": "<why selected, specific guidelines applied, and where it was found in the text>"
 }
-                    ]
-                }
+]
+}
 
 CRITICAL RULES:
 
 You MUST read every line of every uploaded file.
+
 Missing any diagnosis is considered an audit failure.
+
 YOU MUST NOT summarize, assume, or fabricate any diagnosis.
+
 Every output must directly come from the uploaded files.
     `;
 
@@ -961,7 +967,7 @@ Every output must directly come from the uploaded files.
                 });
             });
 
-            const response = await fetch(`${ GEMINI_VISION_ENDPOINT }?key = ${ GEMINI_API_KEY } `, {
+            const response = await fetch(`${GEMINI_VISION_ENDPOINT}?key=${GEMINI_API_KEY}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ contents: [{ parts: parts }] })
@@ -985,39 +991,39 @@ Every output must directly come from the uploaded files.
         // --- 3. PT/OT Extraction (New Integrated Function) ---
         async function runPtOtExtraction(fileDataArray) {
             const prompt = `
-            Role - You are an expert Medical Data Encoder.
+    Role - You are an expert Medical Data Encoder.
 
-    CRITICAL INSTRUCTION:
+    CRITICAL INSTRUCTION: 
 
-            1. First, determine if any of the uploaded files is a specific Physical Therapy(PT) or Occupational Therapy(OT) Evaluation / Assessment.
+    1. First, determine if any of the uploaded files is a specific Physical Therapy (PT) or Occupational Therapy (OT) Evaluation/Assessment.
 
-    2. If the files are ONLY OASIS forms, physician encounter notes, or discharge summaries WITHOUT a dedicated PT / OT functional assessment section, you MUST return an empty JSON object: { }
+    2. If the files are ONLY OASIS forms, physician encounter notes, or discharge summaries WITHOUT a dedicated PT/OT functional assessment section, you MUST return an empty JSON object: {}
 
-            3. DO NOT guess information.If the specific functional levels(Max A, Min A, etc.) are not present in a PT / OT context, return {}.
+    3. DO NOT guess information. If the specific functional levels (Max A, Min A, etc.) are not present in a PT/OT context, return {}.
+ 
 
+    Task -  Extract functional assessment data from the attached Physical Therapy (PT) or Occupational Therapy (OT) documents and map the values to a specific JSON structure using strict standardization rules.
 
-                Task - Extract functional assessment data from the attached Physical Therapy(PT) or Occupational Therapy(OT) documents and map the values to a specific JSON structure using strict standardization rules.
+    1. Value Mapping Logic (Strict)
 
-            1. Value Mapping Logic(Strict)
+    You must convert the raw text found in the document (e.g., "Min A", "04", "CGA") into the exact string values listed in the Target Output (Required Value) column below.
+    Use the Terms/Codes Found in Doc column to identify the correct match.
 
-    You must convert the raw text found in the document(e.g., "Min A", "04", "CGA") into the exact string values listed in the Target Output(Required Value) column below.
-    Use the Terms / Codes Found in Doc column to identify the correct match.
+    Functional Level    Terms / Codes Found in Doc  Target Output (Required Value)
+    6   06, Ind, Independent, I, Safe   "6"
+    5   05, Mod I, Modified Independent, MI, Setup/Cleanup  "5"
+    4   Walker/Cane used w/o assist, Assist with Device "4"
+    4   Sup, Supervision, ST    "4"
+    4   SBA, Stand By Assist, SC    "4"
+    4   CGA, Contact Guard Assist, Caregiver Assist, Required Assistance    "4"
+    3   03, Min A, Minimum Assist, PM, 25%  "3"
+    3   Mod A, Moderate Assist, 50% "3"
+    2   02, Max A, Max Assistance, SM, 75%  "2"
+    1   01, Dep, Dependent, Total Assist, >75%, Unable  "1"
+    NT  NT, N/A, Not Attempted, Not Tested  "NT"
 
-    Functional Level    Terms / Codes Found in Doc  Target Output(Required Value)
-            6   06, Ind, Independent, I, Safe   "6"
-            5   05, Mod I, Modified Independent, MI, Setup / Cleanup  "5"
-            4   Walker / Cane used w / o assist, Assist with Device "4"
-            4   Sup, Supervision, ST    "4"
-            4   SBA, Stand By Assist, SC    "4"
-            4   CGA, Contact Guard Assist, Caregiver Assist, Required Assistance    "4"
-            3   03, Min A, Minimum Assist, PM, 25 % "3"
-            3   Mod A, Moderate Assist, 50 % "3"
-            2   02, Max A, Max Assistance, SM, 75 % "2"
-            1   01, Dep, Dependent, Total Assist, > 75 %, Unable  "1"
-    NT  NT, N / A, Not Attempted, Not Tested  "NT"
-
-            Note:
-    If the document uses checkmarks, map the column header(e.g., MIN, MOD, MAX) to the corresponding Target Output.
+    Note:
+    If the document uses checkmarks, map the column header (e.g., MIN, MOD, MAX) to the corresponding Target Output.
 
     2. Extraction Instructions
 
@@ -1032,7 +1038,7 @@ Every output must directly come from the uploaded files.
 
     If the value is PM, map to "3".
 
-    If the value is SM, map to "2"(unless explicitly labeled Moderate).
+    If the value is SM, map to "2" (unless explicitly labeled Moderate).
 
     Null Handling
 
@@ -1040,15 +1046,15 @@ Every output must directly come from the uploaded files.
 
     3. JSON Output Structure
 
-    Return only a valid JSON object using the keys below.Do NOT use markdown code blocks.
+    Return only a valid JSON object using the keys below. Do NOT use markdown code blocks.
 
-                Occupational Therapy (OT) Fields
+    Occupational Therapy (OT) Fields
 
-                    (Only populate these if analyzing an OT document)
+    (Only populate these if analyzing an OT document)
 
-            Date_of_OT_Eval__c → Format: YYYY - MM - DD
+    Date_of_OT_Eval__c → Format: YYYY-MM-DD
 
-            GG_OT_Feeding__c → Look for Eating / Feeding
+    GG_OT_Feeding__c → Look for Eating / Feeding
 
     GG_OT_Oral_Hygiene__c → Look for Teeth / Dentures / Oral
 
@@ -1066,23 +1072,23 @@ Every output must directly come from the uploaded files.
 
     If combined with Lower Body Dressing, use that score.
 
-                GG_OT_Car_Van__c → Look for Car Transfer in OT section
+    GG_OT_Car_Van__c → Look for Car Transfer in OT section
 
     GG_OT_Toilet_Transfer__c → Look for Toilet Transfer in OT section
 
-    Physical Therapy(PT) Fields
+    Physical Therapy (PT) Fields
 
-                (Only populate these if analyzing a PT document)
+    (Only populate these if analyzing a PT document)
 
-            GG_PT_Sit_Stand__c → Look for Sit to Stand transfer
+    GG_PT_Sit_Stand__c → Look for Sit to Stand transfer
 
-            GG_PT_Bed_Wheelchair__c → Look for Bed to Chair / Wheelchair transfer
+    GG_PT_Bed_Wheelchair__c → Look for Bed to Chair / Wheelchair transfer
 
-            GG_PT_Wheelchair_Bed__c → Look for Wheelchair to Bed transfer
+    GG_PT_Wheelchair_Bed__c → Look for Wheelchair to Bed transfer
 
     If not distinct, use Bed_Wheelchair value.
 
-                GG_PT_Car_Van__c → Look for Car Transfer
+    GG_PT_Car_Van__c → Look for Car Transfer
 
     GG_PT_Toilet_Transfer__c → Look for Toilet Transfer / Commode
 
@@ -1090,11 +1096,11 @@ Every output must directly come from the uploaded files.
 
     GG_PT_Level_10_Feet__c → Look for Ambulation / Gait – 10 ft
 
-            GG_PT_Level_50_Feet__c → Look for Ambulation / Gait – 50 ft
+    GG_PT_Level_50_Feet__c → Look for Ambulation / Gait – 50 ft
 
-            GG_PT_Level_150_Feet__c → Look for Ambulation / Gait – 150 ft
+    GG_PT_Level_150_Feet__c → Look for Ambulation / Gait – 150 ft
 
-            GG_PT_Unlevel__c → Look for Uneven Surfaces
+    GG_PT_Unlevel__c → Look for Uneven Surfaces
 
     GG_PT_1_Step__c → Look for 1 Step / Curb
 
@@ -1102,21 +1108,21 @@ Every output must directly come from the uploaded files.
 
     GG_PT_12_Steps__c → Look for 12 Steps / Full Flight
 
-    General Fields(All Documents)
+    General Fields (All Documents)
 
-            Complete_PT_OT_Eval__c → Always set to "Yes"
+    Complete_PT_OT_Eval__c → Always set to "Yes"
 
-            Date_of_PT_OT_Eval__c → Date of evaluation(YYYY - MM - DD)
+    Date_of_PT_OT_Eval__c → Date of evaluation (YYYY-MM-DD)
 
-            Bed_Mobility__c → Look for Rolling Left / Right
+    Bed_Mobility__c → Look for Rolling Left / Right
 
     Transfer__c → Look for Supine to Sit / Sit to Supine
 
-            Gait__c → Look for general ambulation if distances are not listed
+    Gait__c → Look for general ambulation if distances are not listed
 
-            Wheelchair_Mobility__c → Look for Wheelchair use / propulsion
+    Wheelchair_Mobility__c → Look for Wheelchair use / propulsion
 
-     Other__c → Look for Unlevel or Uneven Surfaces(Level / Unlevel / Uneven / Uneven surface / Walk on uneven surfaces and Populate this field using the same Value Mapping Logic defined above.)
+     Other__c → Look for Unlevel or Uneven Surfaces (Level / Unlevel / Uneven / Uneven surface / Walk on uneven surfaces and Populate this field using the same Value Mapping Logic defined above.)
     `;
 
             const parts = [{ text: prompt }];
@@ -1124,7 +1130,7 @@ Every output must directly come from the uploaded files.
                 parts.push({ inlineData: { mimeType: f.mimeType, data: f.base64 } });
             });
 
-            const response = await fetch(`${ GEMINI_VISION_ENDPOINT }?key = ${ GEMINI_API_KEY } `, {
+            const response = await fetch(`${GEMINI_VISION_ENDPOINT}?key=${GEMINI_API_KEY}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ contents: [{ parts: parts }] })
@@ -1156,7 +1162,7 @@ Every output must directly come from the uploaded files.
 
         function showStatus(message, isError = false) {
             const status = document.getElementById("status");
-            status.innerHTML = `< span class="${isError ? 'error' : 'success'}" > ${ message }</span >`;
+            status.innerHTML = `<span class="${isError ? 'error' : 'success'}">${message}</span>`;
         }
 
         function readFileAsBase64(file) {
