@@ -887,76 +887,58 @@ Summarize ONLY what is written. Never fabricate or assume.
             const extractionPrompt = `
 Role: You are an elite, dual-certified Clinical Documentation Improvement (CDI) Specialist and Medical Auditor.
 
-Objective: Read the provided clinical text. Extract all documented conditions, then rigorously apply ALL ICD-10-CM Official Guidelines for Coding and Reporting (OGCR) and tabular instructional notes (including Combination codes, "Code first", "Use additional code", "Code also", and Excludes1/Excludes2) to output a finalized, compliant code list.
+Objective: Read the provided clinical text. Extract all documented conditions, then rigorously apply ICD-10-CM coding guidelines (Combinations, Excludes1/2, Sequencing) to output a finalized, compliant code list.
 
 You MUST execute this task in four strict steps. Do your reasoning silently before generating the JSON output:
 
 Step 1: Active Extraction (Gather)
 Extract ALL active, relevant documented medical conditions, symptoms, and histories. Map them to their correct raw ICD-10 codes.
 CRITICAL EXTRACTION RULES:
+- Extract ONLY active diagnoses. DO NOT extract conditions that are explicitly resolved, healed, or no longer receiving active treatment (e.g., an acute fracture that is healed, or treated infections).
+- DO NOT extract symptom codes (R-codes) if they are integral to a confirmed active disease condition.
+- Do not infer diagnoses from medications alone.
 
-Extract ONLY active diagnoses. DO NOT extract conditions that are explicitly resolved, healed, or no longer receiving active treatment (e.g., an acute fracture that is healed, or treated infections).
-
-DO NOT extract symptom codes (R-codes) if they are integral to a confirmed active disease condition.
-
-Do not infer diagnoses from medications alone.
-
-Step 2: Combination & Instructional Note Coding (Merge & Expand)
-Review your raw list and apply ICD-10-CM Tabular List instructions.
-
-Combination Code: If two or more codes must be combined (e.g., an underlying disease and a manifestation, or Alzheimer's with behavioral disturbances), merge them into the appropriate single combination code and drop the individual codes.
-
-"Code first" & "Use additional code": Identify etiology/manifestation conventions. Ensure you have captured both the underlying condition and the manifestation if supported by the text.
-
-"Code also": If a code note mandates that two diagnoses may be required to fully describe a condition, ensure both are captured if clinically documented.
+Step 2: Combination Coding (Merge)
+Review your raw list. If two or more codes must be combined per ICD-10 guidelines (e.g., an underlying disease and a manifestation, or Alzheimer's with behavioral disturbances like psychosis/depression), merge them into the appropriate combination code. Drop the individual codes.
 
 Step 3: Excludes1 & Excludes2 Scrubbing (Conflict Resolution)
 Review the list for mutually exclusive codes.
 
-Excludes1: If two codes cannot be coded together (e.g., a general symptom like 'Weakness' alongside a specific diagnosis like 'Muscle Weakness' or two mutually exclusive congenital conditions), drop the less specific or precluded code.
+Excludes1: If two codes cannot be coded together (e.g., a general symptom like 'Weakness' alongside a specific diagnosis like 'Muscle Weakness'), drop the less specific or precluded code.
 
-Excludes2: Note if two codes can coexist, but ensure they are both clinically supported as distinct conditions in the documentation.
+Excludes2: Note if two codes can coexist, but ensure they are both clinically supported.
 
-Step 4: Strict Sequencing (Order)
-Order the surviving codes perfectly.
-
-Place the Principal Diagnosis (the primary reason for admission/encounter established after study) first.
-
-Apply "Code first" rules strictly here: if a manifestation code is present, its etiology code MUST be sequenced before it.
-
-Apply "Use additional code" rules: the additional code must immediately follow the primary code it describes.
+Step 4: Sequencing (Order)
+Order the surviving codes. Place the primary reason for admission/encounter first. Apply "Code First" and "Use Additional Code" etiology/manifestation sequencing rules.
 
 Output: Return the result strictly adhering to the requested JSON schema. The JSON must contain your audit trail showing the raw codes, the rules you applied, and the final sequenced list.
 
 ====================================================
 STRICT OUTPUT FORMAT (Return ONLY a JSON object)
-Output a single JSON object containing the audit trail and final codes. Do not include markdown formatting or the ```json block. Just the raw JSON.
+====================================================
+Output a single JSON object containing the audit trail and final codes. Do not include markdown formatting or the \`\`\`json block. Just the raw JSON.
 
 {
-"auditTrail": {
-"step1_rawExtraction": [""],
-"step2_combinationsAndInstructions": ["<list of 'Combination', 'Code first', 'Use additional code', or 'Code also' logic applied>"],
-"step3_scrubbing": ["<list of Excludes1/2 rules applied and codes dropped>"],
-"step4_sequencing": ["<logic for principal diagnosis selection and exact etiology/manifestation ordering>"]
-},
-"finalCodes": [
-{
-"code": "",
-"diagnosis": "",
-"potentialPrimary": true or false,
-"reasonSource": "<why selected, specific guidelines applied, and where it was found in the text>"
-}
-]
+  "auditTrail": {
+    "step1_rawExtraction": ["<list of raw findings>"],
+    "step2_combination": ["<list of combination logic applied>"],
+    "step3_scrubbing": ["<list of Excludes rules applied and codes dropped>"],
+    "step4_sequencing": ["<logic for primary selection and code first sequencing>"]
+  },
+  "finalCodes": [
+    {
+      "code": "<extracted ICD code or empty string>",
+      "diagnosis": "<exact diagnosis text>",
+      "potentialPrimary": true or false,
+      "reasonSource": "<why selected and where it was found in the text>"
+    }
+  ]
 }
 
-CRITICAL RULES:
 
 You MUST read every line of every uploaded file.
-
 Missing any diagnosis is considered an audit failure.
-
 YOU MUST NOT summarize, assume, or fabricate any diagnosis.
-
 Every output must directly come from the uploaded files.
     `;
 
