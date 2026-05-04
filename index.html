@@ -616,33 +616,27 @@
                 disableUploadUI();
                 analyzeBtn.innerText = "Analyzing...";
 
-                // 🔵 Real step-based progress (tied to actual work)
-                updateProgress(5, "Initializing...");
+                // 🔵 Start progress
+                progressValue = 1;
+                updateProgress(1, "Initializing Batch...");
+                startAutoProgress(90, 120);
 
                 const startTime = Date.now();
 
                 // --- STEP 1: READ FILES ---
-                updateProgress(15, `Reading ${selectedFiles.length} file(s)...`);
+                updateProgress(progressValue, `Processing ${selectedFiles.length} file(s)...`);
                 const fileDataArray = await Promise.all(
                     selectedFiles.map(file => readFileAsBase64(file))
                 );
-                updateProgress(25, "Files ready — sending to AI...");
 
                 // --- STEP 2: PARALLEL AI EXECUTION (Elite Auditor, F2F, and PT/OT) ---
-                // Track each AI call individually so progress reflects real completion
-                let completedAiCalls = 0;
-                function onAiComplete(label) {
-                    completedAiCalls++;
-                    updateProgress(25 + completedAiCalls * 20, `${label} done (${completedAiCalls}/3)...`);
-                }
+                updateProgress(progressValue, "AI Running: Elite Auditor, F2F, and PT/OT Extraction...");
 
                 const [rawExtraction, f2fSummaryText, ptOtResult] = await Promise.all([
-                    callGeminiVisionMulti(fileDataArray).then(r => { onAiComplete("ICD-10 Audit"); return r; }),
-                    callGeminiF2FSummary(fileDataArray).then(r => { onAiComplete("F2F Summary"); return r; }),
-                    runPtOtExtraction(fileDataArray).then(r => { onAiComplete("PT/OT Extraction"); return r; })
+                    callGeminiVisionMulti(fileDataArray), // Elite Auditor (Extraction + Audit combined)
+                    callGeminiF2FSummary(fileDataArray),  // F2F
+                    runPtOtExtraction(fileDataArray)      // PT/OT (New)
                 ]);
-
-                updateProgress(90, "Parsing results...");
 
                 CACHED_AI_TIME = Math.floor((Date.now() - startTime) / 1000);
 
@@ -891,140 +885,79 @@ Summarize ONLY what is written. Never fabricate or assume.
         // --- 2. Elite CDI Auditor (Combined Extraction & Audit) ---
         async function callGeminiVisionMulti(fileDataArray) {
             const extractionPrompt = `
-Role: You are an elite, dual-certified Clinical Documentation Improvement (CDI) Specialist and Medical Auditor with deep expertise in the ICD-10-CM Official Guidelines for Coding and Reporting (FY 2025), AHA Coding Clinic advice, CMS Home Health PPS / PDGM rules, and HCC v28 risk adjustment.
+Role: You are an elite, dual-certified Clinical Documentation Improvement (CDI) Specialist and Medical Auditor.
 
-Governing Authority (cite by section in your audit trail when a rule applies):
-- ICD-10-CM Official Guidelines for Coding and Reporting, FY 2025 — Sections I.A (Conventions), I.B (General Coding Guidelines), I.C (Chapter-Specific Guidelines), II (Selection of Principal Diagnosis), III (Reporting Additional Diagnoses), IV (Outpatient/Home Health).
-- ICD-10-CM Tabular instructional notes: Includes, Excludes1, Excludes2, Code First, Use Additional Code, Code Also, "In diseases classified elsewhere".
-- CMS Home Health PDGM Primary Diagnosis rules (M1021) — only one principal diagnosis; it must be the condition chiefly responsible for the home health plan of care.
-- AHA Coding Clinic guidance for any rule conflicts.
+Objective: Read the provided clinical text. Extract all documented conditions, then rigorously apply ALL ICD-10-CM Official Guidelines for Coding and Reporting (OGCR) and tabular instructional notes (including Combination codes, "Code first", "Use additional code", "Code also", and Excludes1/Excludes2) to output a finalized, compliant code list.
 
-Objective: Read ALL provided clinical documents thoroughly. Extract every documented condition, then rigorously apply ICD-10-CM Official Guidelines to produce a finalized, audit-ready, compliant code list. Accuracy is non-negotiable: do not silently drop a documented diagnosis, and do not silently add a code that is not documented.
+You MUST execute this task in four strict steps. Do your reasoning silently before generating the JSON output:
 
-You MUST execute this task in six strict steps. Do your reasoning silently before generating the JSON output. Every code that survives or is removed must be justified by a cited guideline section or Tabular instructional note.
-
-============================================================
-STEP 1: ACTIVE EXTRACTION (Gather — no omissions)
-============================================================
-Extract ALL active, relevant documented medical conditions, symptoms, and histories. Map each to its correct raw ICD-10-CM code, citing the exact source location (page, section, line).
-
+Step 1: Active Extraction (Gather)
+Extract ALL active, relevant documented medical conditions, symptoms, and histories. Map them to their correct raw ICD-10 codes.
 CRITICAL EXTRACTION RULES:
-- Extract ONLY active diagnoses. DO NOT extract conditions explicitly documented as resolved, healed, ruled-out, or "history of" with no current bearing on care (per Guideline I.C.21 and IV.J).
-- DO NOT extract standalone symptom codes (Chapter 18, R-codes) if the symptom is routinely associated with a confirmed diagnosis (Guideline I.B.4, I.B.5). EXCEPTION: code the symptom only when it is NOT integral to the confirmed condition or when no definitive diagnosis explains it.
-- Do NOT infer diagnoses from medications, labs, or imaging alone (Guideline I.A.19 — code assignment requires provider documentation of the diagnosis).
-- DO include MANDATORY companion codes whenever the Tabular cites "Use Additional Code" (e.g., Z79.4 long-term insulin, Z79.84 oral hypoglycemics, B95-B97 organism, Z68.- BMI when relevant).
-- DO include clinically relevant Z-codes that influence current care: status (Z79.-, Z95.-, Z93.-, Z99.-) and history (Z85.-, Z86.-, Z87.-) per Guideline I.C.21.c.
-- PRESERVATION RULE: Every diagnosis explicitly stated by a provider in the documentation must appear in Step 1. Omission is an audit failure.
 
-============================================================
-STEP 2: SPECIFICITY & LATERALITY ENFORCEMENT (Guideline I.B.6, I.B.13, IV.H)
-============================================================
-For every code in your raw list, apply two mandatory checks:
+Extract ONLY active diagnoses. DO NOT extract conditions that are explicitly resolved, healed, or no longer receiving active treatment (e.g., an acute fracture that is healed, or treated infections).
 
-A. SPECIFICITY — Always code to the HIGHEST level of specificity supported by the documentation (Guideline I.B.6).
-   - NEVER default to an "unspecified" code (.9, .90, .91, .9X) when the document supports a more specific code.
-   - NEVER use a "not elsewhere classified" (NEC) code if a precise code exists.
-   - If specificity truly cannot be determined, use the appropriate unspecified code and explicitly flag it in the audit trail with the reason.
+DO NOT extract symptom codes (R-codes) if they are integral to a confirmed active disease condition.
 
-B. LATERALITY — Apply left / right / bilateral designations wherever ICD-10-CM requires it (Guideline I.B.13).
-   - Applies to: limbs, joints, eyes, ears, kidneys, lungs (lobes), breasts, ovaries, and any paired organ or structure.
-   - If the document specifies a side, you MUST code that laterality.
-   - If laterality is not documented, use the unspecified laterality code and flag it explicitly.
+Do not infer diagnoses from medications alone.
 
-============================================================
-STEP 3: COMBINATION CODING & ETIOLOGY/MANIFESTATION (Guideline I.A.13, I.A.15, I.B.9)
-============================================================
-Apply combination coding per ICD-10-CM:
-- Merge underlying disease + manifestation into the correct combination code where one exists (e.g., diabetic CKD → E11.22 + N18.-; diabetic neuropathy → E11.4-; Alzheimer's with behavioral disturbance → G30.- + F02.81-).
-- Merge infection + organism when a combination code exists (e.g., A41.- sepsis with organism).
-- Merge hypertension + CKD → I12.- ; hypertension + heart disease → I11.- ; hypertension + heart + CKD → I13.-.
-- Drop individual component codes once subsumed by a valid combination code, AND log the merge in the audit trail.
+Step 2: Combination & Instructional Note Coding (Merge & Expand)
+Review your raw list and apply ICD-10-CM Tabular List instructions.
 
-ETIOLOGY / MANIFESTATION RULE (CRITICAL — Guideline I.A.13):
-- A manifestation code (italicized in the Tabular, or carrying "in diseases classified elsewhere") can NEVER be sequenced as the principal or primary diagnosis.
-- Manifestation codes MUST follow their underlying etiology code.
-- Any manifestation code must be flagged with "potentialPrimary": false unconditionally.
+Combination Code: If two or more codes must be combined (e.g., an underlying disease and a manifestation, or Alzheimer's with behavioral disturbances), merge them into the appropriate single combination code and drop the individual codes.
 
-============================================================
-STEP 4: EXCLUDES1 / EXCLUDES2 / CODE ALSO (Guideline I.A.12)
-============================================================
-- Excludes1 ("NOT CODED HERE"): the two conditions cannot be reported together at the same encounter unless unrelated (per the 2018 Excludes1 clarification). Drop the precluded code and cite the Excludes1 note. If the conditions are clinically unrelated and both documented, retain both and document why.
-- Excludes2 ("NOT INCLUDED HERE"): the conditions may coexist. Retain both ONLY if each is independently documented.
-- Code Also: MANDATORY when applicable — both codes must be reported; sequencing follows severity and reason for encounter.
-- Remove any code that is already a component of an assigned combination code (audit-trail it).
+"Code first" & "Use additional code": Identify etiology/manifestation conventions. Ensure you have captured both the underlying condition and the manifestation if supported by the text.
 
-REMOVAL RULE: A code may ONLY be removed if (a) it is a component subsumed by a combination code, (b) an Excludes1 note precludes it, or (c) it is a symptom integral to a coded definitive diagnosis. Any other removal is an audit failure. Cite the rule for every removal.
+"Code also": If a code note mandates that two diagnoses may be required to fully describe a condition, ensure both are captured if clinically documented.
 
-ADDITION RULE: A code may ONLY be added if (a) it is explicitly documented by a provider, (b) it is a "Use Additional Code" / "Code Also" companion required by the Tabular, or (c) it is a status/history Z-code that influences current care. No other additions are permitted.
+Step 3: Excludes1 & Excludes2 Scrubbing (Conflict Resolution)
+Review the list for mutually exclusive codes.
 
-============================================================
-STEP 5: PRINCIPAL DIAGNOSIS SELECTION & SEQUENCING (Guideline II, IV; CMS M1021)
-============================================================
-Select ONE primary diagnosis using this hierarchy (do not skip steps):
+Excludes1: If two codes cannot be coded together (e.g., a general symptom like 'Weakness' alongside a specific diagnosis like 'Muscle Weakness' or two mutually exclusive congenital conditions), drop the less specific or precluded code.
 
-1. The condition chiefly responsible for the patient's need for skilled home health services in this episode (CMS M1021). This is NOT automatically the most severe condition.
-2. The principal diagnosis must be acceptable as a PDGM primary diagnosis (must map to a PDGM clinical group; many V/W/X/Y/Z and unspecified codes are NOT acceptable as primary).
-3. The principal diagnosis must NEVER be:
-   - A manifestation code (Guideline I.A.13).
-   - A symptom or sign (Chapter 18) when a related definitive diagnosis is documented (Guideline II.A, IV.D).
-   - A "history of" Z-code when an active condition exists.
-   - An "unspecified" code if a more specific one is supported.
-4. Apply mandatory "Code First" etiology → manifestation sequencing.
-5. List secondary diagnoses in order of clinical significance and impact on the home health plan of care (Guideline III, IV.J).
-6. Place required companion Z-codes and status codes after the clinical diagnoses they support.
+Excludes2: Note if two codes can coexist, but ensure they are both clinically supported as distinct conditions in the documentation.
 
-For the chosen primary, your audit trail MUST state: (a) why this condition drives the current home health episode, (b) what skilled service it requires, (c) why competing diagnoses were not selected.
+Step 4: Strict Sequencing (Order)
+Order the surviving codes perfectly.
 
-============================================================
-STEP 6: FINAL RECONCILIATION (Mandatory self-check before output)
-============================================================
-Before emitting JSON, verify:
-- Every provider-documented active diagnosis from Step 1 is either present in finalCodes OR has a documented removal reason in the audit trail with a cited guideline.
-- No code in finalCodes is absent from the source documents (no fabrications, no inferred diagnoses).
-- No "unspecified" code is used where a specific code is supported.
-- Exactly one code has "potentialPrimary": true, and it satisfies all Step 5 rules.
-- Every "Use Additional Code" / "Code Also" requirement is satisfied OR explicitly flagged as not documented.
-- Every Excludes1 conflict has been resolved with a citation.
+Place the Principal Diagnosis (the primary reason for admission/encounter established after study) first.
 
-If any check fails, fix the list before output.
+Apply "Code first" rules strictly here: if a manifestation code is present, its etiology code MUST be sequenced before it.
 
-============================================================
-STRICT OUTPUT FORMAT — Return ONLY a raw JSON object. No markdown, no code blocks, no text outside the JSON.
-============================================================
+Apply "Use additional code" rules: the additional code must immediately follow the primary code it describes.
+
+Output: Return the result strictly adhering to the requested JSON schema. The JSON must contain your audit trail showing the raw codes, the rules you applied, and the final sequenced list.
+
+====================================================
+STRICT OUTPUT FORMAT (Return ONLY a JSON object)
+Output a single JSON object containing the audit trail and final codes. Do not include markdown formatting or the ```json block. Just the raw JSON.
 
 {
-  "auditTrail": {
-    "step1_rawExtraction": ["<code: description — source location (page/section/line)>"],
-    "step2_specificity": ["<original code → refined code — Guideline I.B.6 reason>"],
-    "step2_laterality": ["<code — laterality applied, or flagged undocumented (I.B.13)>"],
-    "step3_combination": ["<codes merged → combination code — Guideline cited>"],
-    "step4_scrubbing": ["<code dropped or retained — Excludes1/2 / Code Also / I.A.12 cited>"],
-    "step5_sequencing": ["<primary selection rationale — M1021 + Guideline II/IV; etiology/manifestation order>"],
-    "step6_reconciliation": ["<each Step-1 diagnosis: kept | merged → X | dropped because <cited rule>>"]
-  },
-  "finalCodes": [
-    {
-      "code": "<ICD-10-CM code>",
-      "diagnosis": "<exact diagnosis text from the document>",
-      "potentialPrimary": true or false,
-      "laterality": "<Left | Right | Bilateral | N/A | Undocumented>",
-      "hccRelevant": true or false,
-      "codeSpecificity": "<Specific | Unspecified — include reason if Unspecified>",
-      "guidelineCitation": "<e.g., I.C.9.a.1, II.B, IV.G, Tabular Excludes1 at I10>",
-      "reasonSource": "<why selected and exact location found in the uploaded document>"
-    }
-  ]
+"auditTrail": {
+"step1_rawExtraction": [""],
+"step2_combinationsAndInstructions": ["<list of 'Combination', 'Code first', 'Use additional code', or 'Code also' logic applied>"],
+"step3_scrubbing": ["<list of Excludes1/2 rules applied and codes dropped>"],
+"step4_sequencing": ["<logic for principal diagnosis selection and exact etiology/manifestation ordering>"]
+},
+"finalCodes": [
+{
+"code": "",
+"diagnosis": "",
+"potentialPrimary": true or false,
+"reasonSource": "<why selected, specific guidelines applied, and where it was found in the text>"
+}
+]
 }
 
-FINAL ENFORCEMENT RULES (audit failures if violated):
-- You MUST read every line of every uploaded file. Missing any provider-documented diagnosis is an audit failure.
-- You MUST NOT fabricate, assume, or infer any diagnosis not explicitly documented by a provider.
-- You MUST NOT drop a documented diagnosis without citing the specific Guideline / Excludes1 / combination rule that justifies the removal.
-- You MUST NOT add a code that is not documented or required by a Tabular instructional note.
-- You MUST NOT return an unspecified code when the document supports a more specific one.
-- You MUST NOT sequence a manifestation, symptom, history Z-code, or PDGM-invalid code as the primary diagnosis when a valid definitive diagnosis exists.
-- Exactly one entry in finalCodes has "potentialPrimary": true.
-- Every entry in finalCodes must trace back to a specific location in the uploaded documents AND cite the governing guideline section.
+CRITICAL RULES:
+
+You MUST read every line of every uploaded file.
+
+Missing any diagnosis is considered an audit failure.
+
+YOU MUST NOT summarize, assume, or fabricate any diagnosis.
+
+Every output must directly come from the uploaded files.
     `;
 
             const parts = [{ text: extractionPrompt }];
@@ -1244,7 +1177,6 @@ FINAL ENFORCEMENT RULES (audit failures if violated):
                 reader.readAsDataURL(file);
             });
         }
-
     </script>
 </body>
 
