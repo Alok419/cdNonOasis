@@ -616,27 +616,33 @@
                 disableUploadUI();
                 analyzeBtn.innerText = "Analyzing...";
 
-                // 🔵 Start progress
-                progressValue = 1;
-                updateProgress(1, "Initializing Batch...");
-                startAutoProgress(90, 120);
+                // 🔵 Real step-based progress (tied to actual work)
+                updateProgress(5, "Initializing...");
 
                 const startTime = Date.now();
 
                 // --- STEP 1: READ FILES ---
-                updateProgress(progressValue, `Processing ${selectedFiles.length} file(s)...`);
+                updateProgress(15, `Reading ${selectedFiles.length} file(s)...`);
                 const fileDataArray = await Promise.all(
                     selectedFiles.map(file => readFileAsBase64(file))
                 );
+                updateProgress(25, "Files ready — sending to AI...");
 
                 // --- STEP 2: PARALLEL AI EXECUTION (Elite Auditor, F2F, and PT/OT) ---
-                updateProgress(progressValue, "AI Running: Elite Auditor, F2F, and PT/OT Extraction...");
+                // Track each AI call individually so progress reflects real completion
+                let completedAiCalls = 0;
+                function onAiComplete(label) {
+                    completedAiCalls++;
+                    updateProgress(25 + completedAiCalls * 20, `${label} done (${completedAiCalls}/3)...`);
+                }
 
                 const [rawExtraction, f2fSummaryText, ptOtResult] = await Promise.all([
-                    callGeminiVisionMulti(fileDataArray), // Elite Auditor (Extraction + Audit combined)
-                    callGeminiF2FSummary(fileDataArray),  // F2F
-                    runPtOtExtraction(fileDataArray)      // PT/OT (New)
+                    callGeminiVisionMulti(fileDataArray).then(r => { onAiComplete("ICD-10 Audit"); return r; }),
+                    callGeminiF2FSummary(fileDataArray).then(r => { onAiComplete("F2F Summary"); return r; }),
+                    runPtOtExtraction(fileDataArray).then(r => { onAiComplete("PT/OT Extraction"); return r; })
                 ]);
+
+                updateProgress(90, "Parsing results...");
 
                 CACHED_AI_TIME = Math.floor((Date.now() - startTime) / 1000);
 
@@ -857,7 +863,7 @@ Summarize ONLY what is written. Never fabricate or assume.
                 });
             });
 
-            const response = await fetch(`${GEMINI_VISION_ENDPOINT}?key=${GEMINI_API_KEY}`, {
+            const response = await fetchWithTimeout(`${GEMINI_VISION_ENDPOINT}?key=${GEMINI_API_KEY}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ contents: [{ parts: parts }] })
@@ -949,7 +955,7 @@ Every output must directly come from the uploaded files.
                 });
             });
 
-            const response = await fetch(`${GEMINI_VISION_ENDPOINT}?key=${GEMINI_API_KEY}`, {
+            const response = await fetchWithTimeout(`${GEMINI_VISION_ENDPOINT}?key=${GEMINI_API_KEY}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ contents: [{ parts: parts }] })
@@ -1112,7 +1118,7 @@ Every output must directly come from the uploaded files.
                 parts.push({ inlineData: { mimeType: f.mimeType, data: f.base64 } });
             });
 
-            const response = await fetch(`${GEMINI_VISION_ENDPOINT}?key=${GEMINI_API_KEY}`, {
+            const response = await fetchWithTimeout(`${GEMINI_VISION_ENDPOINT}?key=${GEMINI_API_KEY}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ contents: [{ parts: parts }] })
@@ -1158,6 +1164,24 @@ Every output must directly come from the uploaded files.
                 reader.onerror = reject;
                 reader.readAsDataURL(file);
             });
+        }
+
+        // Wraps fetch with an AbortController timeout so a hung Gemini call
+        // never leaves the UI stuck. Default: 120 seconds.
+        async function fetchWithTimeout(url, options, timeoutMs = 120000) {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+            try {
+                const response = await fetch(url, { ...options, signal: controller.signal });
+                return response;
+            } catch (err) {
+                if (err.name === "AbortError") {
+                    throw new Error("AI request timed out after 2 minutes. Please try again.");
+                }
+                throw err;
+            } finally {
+                clearTimeout(timeoutId);
+            }
         }
     </script>
 </body>
