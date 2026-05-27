@@ -365,7 +365,7 @@
 
 <body>
     <div class="card">
-        <h2>AI Non-OASIS Analyzer-----------------------------</h2>
+        <h2>AI Non-OASIS Analyzer</h2>
         <p>Extraction, PT/OT Eval, ICD-10 Audit & F2F</p>
         <div id="loadingMessage" style="text-align:center; color:#4fa3ff; margin-bottom:15px; font-weight:500;">
             Connecting to Salesforce...
@@ -452,8 +452,8 @@
         let selectedFiles = [];
 
         // Using 2.5 Pro for Vision tasks (Diagnosis, PT/OT) and RAG
-        const GEMINI_VISION_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent";
-        const GEMINI_RAG_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent";
+        const GEMINI_VISION_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent";
+        const GEMINI_RAG_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent";
 
         /* =========================================================
            SALESFORCE CONNECTION
@@ -889,44 +889,35 @@ Summarize ONLY what is written. Never fabricate or assume.
             const extractionPrompt = `
 Role: You are an elite, dual-certified Clinical Documentation Improvement (CDI) Specialist and Medical Auditor.
 
-Objective: Read the provided clinical text. Extract all documented conditions, then rigorously apply ALL ICD-10-CM Official Guidelines for Coding and Reporting (OGCR) and tabular instructional notes (including Combination codes, "Code first", "Use additional code", "Code also", and Excludes1/Excludes2) to output a finalized, compliant code list.
+Objective: Read the provided clinical text. Extract all documented conditions to the highest level of specificity, then rigorously apply ALL ICD-10-CM Official Guidelines for Coding and Reporting (OGCR) and tabular instructional notes to output a finalized, compliant code list.
 
 You MUST execute this task in four strict steps. Do your reasoning silently before generating the JSON output:
 
-Step 1: Active Extraction (Gather)
+Step 1: Specific Extraction (Gather)
 Extract ALL active, relevant documented medical conditions, symptoms, and histories. Map them to their correct raw ICD-10 codes.
 CRITICAL EXTRACTION RULES:
-
-Extract ONLY active diagnoses. DO NOT extract conditions that are explicitly resolved, healed, or no longer receiving active treatment (e.g., an acute fracture that is healed, or treated infections).
-
-DO NOT extract symptom codes (R-codes) if they are integral to a confirmed active disease condition.
-
-Do not infer diagnoses from medications alone.
+- Specificity & Laterality: Extract codes to the highest level of specificity (e.g., left/right, acute/chronic, and 7th characters for injuries like initial/subsequent encounter). Do not use unspecified codes if the documentation supports a specific one.
+- Z-Codes: Extract all active diagnoses AND all relevant Z-codes, including preventative screenings, personal/family history of illness, and health status indicators (e.g., mobility status, BMI) even if they are not active diseases.
+- Exclusions: DO NOT extract conditions that are explicitly resolved, healed, or no longer receiving active treatment. DO NOT extract symptom codes (R-codes) if they are integral to a confirmed active disease condition.
+- No Inference: Do not infer diagnoses from medications alone.
 
 Step 2: Combination & Instructional Note Coding (Merge & Expand)
 Review your raw list and apply ICD-10-CM Tabular List instructions.
-
-Combination Code: If two or more codes must be combined (e.g., an underlying disease and a manifestation, or Alzheimer's with behavioral disturbances), merge them into the appropriate single combination code and drop the individual codes.
-
-"Code first" & "Use additional code": Identify etiology/manifestation conventions. Ensure you have captured both the underlying condition and the manifestation if supported by the text.
-
-"Code also": If a code note mandates that two diagnoses may be required to fully describe a condition, ensure both are captured if clinically documented.
+- The "With" Guideline: If two conditions are linked by the word "with" in the ICD-10-CM Alphabetic Index (e.g., Diabetes with Neuropathy, or Hypertension with CKD), you MUST combine them into the appropriate combination code even if the provider did not explicitly link them in the text.
+- Sequelae (Late Effects): If a current deficit is documented as the late effect of a past condition (e.g., hemiplegia due to old CVA), you MUST use the appropriate 'sequelae of' combination code and DROP the standalone symptom code. Always read the patient's history carefully to determine the exact underlying etiology (e.g., hemorrhage vs infarction).
+- "Code first" & "Use additional code": Ensure you have captured both the underlying condition (etiology) and the manifestation if supported by the text.
+- "Code also": Ensure both diagnoses are captured if clinically documented.
 
 Step 3: Excludes1 & Excludes2 Scrubbing (Conflict Resolution)
 Review the list for mutually exclusive codes.
+- Excludes1: If two codes cannot be coded together, drop the less specific or precluded code.
+- Excludes2: Note if two codes can coexist, but ensure they are both clinically supported as distinct conditions.
 
-Excludes1: If two codes cannot be coded together (e.g., a general symptom like 'Weakness' alongside a specific diagnosis like 'Muscle Weakness' or two mutually exclusive congenital conditions), drop the less specific or precluded code.
-
-Excludes2: Note if two codes can coexist, but ensure they are both clinically supported as distinct conditions in the documentation.
-
-Step 4: Strict Sequencing (Order)
+Step 4: Strict Sequencing & UHDDS (Order)
 Order the surviving codes perfectly.
-
-Place the Principal Diagnosis (the primary reason for admission/encounter established after study) first.
-
-Apply "Code first" rules strictly here: if a manifestation code is present, its etiology code MUST be sequenced before it.
-
-Apply "Use additional code" rules: the additional code must immediately follow the primary code it describes.
+- Principal Diagnosis (UHDDS): Set potentialPrimary=true ONLY for the condition established after study to be chiefly responsible for occasioning the admission of the patient to the hospital/facility for care.
+- Apply "Code first" rules strictly: if a manifestation code is present, its etiology code MUST be sequenced before it.
+- Apply "Use additional code" rules: the additional code must immediately follow the primary code it describes.
 
 Output: Return the result strictly adhering to the requested JSON schema. The JSON must contain your audit trail showing the raw codes, the rules you applied, and the final sequenced list.
 
@@ -937,9 +928,9 @@ Output a single JSON object containing the audit trail and final codes. Do not i
 {
 "auditTrail": {
 "step1_rawExtraction": [""],
-"step2_combinationsAndInstructions": ["<list of 'Combination', 'Code first', 'Use additional code', or 'Code also' logic applied>"],
+"step2_combinationsAndInstructions": ["<list of 'With', 'Combination', 'Sequelae', 'Code first', or 'Code also' logic applied>"],
 "step3_scrubbing": ["<list of Excludes1/2 rules applied and codes dropped>"],
-"step4_sequencing": ["<logic for principal diagnosis selection and exact etiology/manifestation ordering>"]
+"step4_sequencing": ["<logic for principal diagnosis selection based on UHDDS and exact ordering>"]
 },
 "finalCodes": [
 {
