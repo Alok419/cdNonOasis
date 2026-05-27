@@ -864,6 +864,8 @@ Summarize ONLY what is written. Never fabricate or assume.
             });
 
             if (!response.ok) {
+                const errorText = await response.text();
+                console.error("F2F Summary failed. Status:", response.status, "Response:", errorText);
                 console.warn("F2F Summary failed, returning default message.");
                 return "No F2F document found.";
             }
@@ -973,7 +975,11 @@ Every output must directly come from the uploaded files.
                 body: JSON.stringify({ contents: [{ parts: parts }] })
             });
 
-            if (!response.ok) throw new Error("Vision Step Failed");
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error("Vision Step Failed. Status:", response.status, "Response:", errorText);
+                throw new Error("Vision Step Failed: " + errorText);
+            }
             const data = await response.json();
 
             currentSessionLogs.push({
@@ -1137,6 +1143,8 @@ Every output must directly come from the uploaded files.
             });
 
             if (!response.ok) {
+                const errorText = await response.text();
+                console.error("PT/OT Extraction failed. Status:", response.status, "Response:", errorText);
                 console.warn("PT/OT Extraction failed");
                 return "{}";
             }
