@@ -897,7 +897,8 @@ Step 1: Specific Extraction (Gather)
 Extract ALL active, relevant documented medical conditions, symptoms, and histories. Map them to their correct raw ICD-10 codes.
 CRITICAL EXTRACTION RULES:
 - Specificity & Laterality: Extract codes to the highest level of specificity (e.g., left/right, acute/chronic, and 7th characters for injuries like initial/subsequent encounter). Do not use unspecified codes if the documentation supports a specific one.
-- Z-Codes: Extract all active diagnoses AND all relevant Z-codes, including preventative screenings, personal/family history of illness, and health status indicators (e.g., mobility status, BMI) even if they are not active diseases.
+- MEAT Criteria (Crucial): Only extract conditions that meet the MEAT criteria (Monitored, Evaluated, Assessed, or Treated) during the current encounter. DO NOT extract historical conditions from a 'Past Medical History' or 'Family History' list unless there is clear documentation that they are actively impacting the patient's current care plan or were assessed today.
+- Z-Codes: Extract all relevant Z-codes, including preventative screenings, personal/family history of illness, and health status indicators (e.g., mobility status, BMI) ONLY IF they meet the MEAT criteria or are actively relevant to the current encounter.
 - Exclusions: DO NOT extract conditions that are explicitly resolved, healed, or no longer receiving active treatment. DO NOT extract symptom codes (R-codes) if they are integral to a confirmed active disease condition.
 - No Inference: Do not infer diagnoses from medications alone.
 
