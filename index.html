@@ -452,8 +452,8 @@
         let selectedFiles = [];
 
         // Using 2.5 Pro for Vision tasks (Diagnosis, PT/OT) and RAG
-        const GEMINI_VISION_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent";
-        const GEMINI_RAG_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent";
+        const GEMINI_VISION_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent";
+        const GEMINI_RAG_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent";
 
         /* =========================================================
            SALESFORCE CONNECTION
@@ -959,6 +959,8 @@ Missing any diagnosis is considered an audit failure.
 
 YOU MUST NOT summarize, assume, or fabricate any diagnosis.
 
+Before finalizing codes, USE the Google Search tool to look up the current ICD-10-CM Excludes1, Excludes2, and Combination rules for the specific codes you extracted to ensure absolute accuracy.
+
 Every output must directly come from the uploaded files.
     `;
 
@@ -972,7 +974,10 @@ Every output must directly come from the uploaded files.
             const response = await fetch(`${GEMINI_VISION_ENDPOINT}?key=${GEMINI_API_KEY}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ contents: [{ parts: parts }] })
+                body: JSON.stringify({
+                    contents: [{ parts: parts }],
+                    tools: [{ googleSearch: {} }]
+                })
             });
 
             if (!response.ok) {
