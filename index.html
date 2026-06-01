@@ -452,9 +452,11 @@
         let selectedFiles = [];
 
         // Using 2.5 Pro for Vision tasks (Diagnosis, PT/OT) and RAG
-        const GEMINI_VISION_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent";
-        const GEMINI_RAG_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent";
+      //  const GEMINI_VISION_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent";
+      //  const GEMINI_RAG_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent";
 
+        let GEMINI_VISION_ENDPOINT = "";
+        let GEMINI_RAG_ENDPOINT = "";
         /* =========================================================
            SALESFORCE CONNECTION
            ========================================================= */
@@ -468,6 +470,9 @@
                 SF_SESSION_ID = event.data.sessionId;
                 SF_BASE_URL = event.data.baseUrl;
 
+                const model = event.data.geminiModel;
+                GEMINI_VISION_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+                GEMINI_RAG_ENDPOINT    = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
                 document.getElementById("loadingMessage").style.display = "none";
                 document.getElementById("mainControls").style.display = "block";
             }
