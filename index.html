@@ -1,3 +1,16 @@
+
+
+<?php
+
+// 1. Allow Salesforce and your specific Portal to load this page
+
+header("Content-Security-Policy: frame-ancestors 'self' https://*.force.com https://*.salesforce.com https://*.visualforce.com https://*.lightning.force.com https://codingdepartment.my.site.com https://codingdepartment--pcopy.sandbox.my.site.com https://*.site.com");
+ 
+// 2. Ensure X-Frame-Options is NOT set to DENY or SAMEORIGIN
+
+header_remove("X-Frame-Options");
+
+?>
 <!DOCTYPE html>
 <html lang="en">
 
@@ -531,8 +544,14 @@
 
         function evaluateScrubberCriteria(rule, scrubber) {
             const raw = ((rule.tagged_oasis_soc_roc || '') + '\n' + (rule.tagged_oasis_recert || '')).trim();
-            if (!raw) return true; // No criteria -> auto fulfilled if ICD matches
-            if (!scrubber) return false; // Criteria required but no scrubber record exists
+            if (!raw) {
+                console.log(`%c[Criteria] Rule #${rule.id} ("${rule.body_system}"): No OASIS criteria attached -> UNCONDITIONALLY FULFILLED`, 'color: #81c784');
+                return true;
+            }
+            if (!scrubber) {
+                console.warn(`%c[Criteria] Rule #${rule.id} ("${rule.body_system}"): OASIS criteria required but no Scrubber record found in Salesforce -> SKIPPED`, 'color: #ffb74d');
+                return false;
+            }
 
             const fieldMatches = raw.match(/[A-Za-z0-9_]+__c/g) || [];
             const optionRegex = /(?:selected should (?:either )?be|should be|selected shoud be|selected should br)\s*[`]?([^\n\r]+)/i;
@@ -548,24 +567,35 @@
                 const val = scrubber[f];
                 // 1. Checkbox field: must be true
                 if (f.startsWith('M1740_') || f.startsWith('N0415_') || f.startsWith('O0110_')) {
-                    if (val !== true && val !== 'true') return false; // If false, skip
+                    const isTrue = (val === true || val === 'true');
+                    console.log(`   [Criteria] Rule #${rule.id} ("${rule.body_system}") | Checkbox ${f}: Value = ${val} -> ${isTrue ? '✅ PASS' : '❌ FAIL (Skipping rule)'}`);
+                    if (!isTrue) return false;
                 } 
                 // 2. Numeric field
                 else if (f.includes('1033')) {
                     const numVal = Number(val);
                     const expected = digits.length > 0 ? digits.map(Number) : [2];
-                    if (!expected.includes(numVal)) return false;
+                    const numPass = expected.includes(numVal);
+                    console.log(`   [Criteria] Rule #${rule.id} ("${rule.body_system}") | Numeric ${f}: Value = ${val}, Expected = [${expected.join(', ')}] -> ${numPass ? '✅ PASS' : '❌ FAIL (Skipping rule)'}`);
+                    if (!numPass) return false;
                 } 
                 // 3. Picklist field: match by option prefix
                 else {
-                    if (val === null || val === undefined || val === '') return false;
+                    if (val === null || val === undefined || val === '') {
+                        console.log(`   [Criteria] Rule #${rule.id} ("${rule.body_system}") | Picklist ${f}: Value is EMPTY/NULL -> ❌ FAIL (Skipping rule)`);
+                        return false;
+                    }
                     const strVal = String(val).trim();
                     if (digits.length > 0) {
                         const matchesPrefix = digits.some(d => strVal.startsWith(d));
+                        console.log(`   [Criteria] Rule #${rule.id} ("${rule.body_system}") | Picklist ${f}: Value = "${strVal}", Required Prefixes = [${digits.join(', ')}] -> ${matchesPrefix ? '✅ PASS' : '❌ FAIL (Skipping rule)'}`);
                         if (!matchesPrefix) return false;
+                    } else {
+                        console.log(`   [Criteria] Rule #${rule.id} ("${rule.body_system}") | Picklist ${f}: Value = "${strVal}" -> ✅ PASS`);
                     }
                 }
             }
+            console.log(`%c[Criteria] Rule #${rule.id} ("${rule.body_system}"): ALL TARGET CRITERIA MET -> RULE FULFILLED! 🎯`, 'color: #4caf50; font-weight: bold;');
             return true;
         }
 
@@ -580,12 +610,17 @@
         }
 
         function evaluatePocRocRules(extractedCodes, scrubber) {
+            console.group("🩺 [Clinical Engine] Starting Rule Evaluation for Extracted ICD Codes");
+            console.log("Extracted ICD-10 Codes:", extractedCodes);
+            console.log("Scrubber Record:", scrubber ? scrubber.Id : "None");
+
             const fulfilledRules = [];
             const seenRuleIds = new Set();
 
             for (const code of extractedCodes) {
                 for (const rule of BODY_SYSTEMS_RULES) {
                     if (matchCodeToRule(code, rule)) {
+                        console.log(`🎯 Code ${code} matched Rule #${rule.id} [${rule.body_system}] (Parent: ${rule.parent_system})`);
                         if (evaluateScrubberCriteria(rule, scrubber)) {
                             if (!seenRuleIds.has(rule.id)) {
                                 seenRuleIds.add(rule.id);
@@ -603,6 +638,18 @@
                     }
                 }
             }
+
+            console.log(`📋 Total Fulfilled Rules: ${fulfilledRules.length}`);
+            if (fulfilledRules.length > 0) {
+                console.table(fulfilledRules.map(r => ({
+                    ID: r.id,
+                    "Body System": r.body_system,
+                    "Matched Codes": (r.matchedCodes || []).join(', '),
+                    "Has Orders": !!(r.orders && r.orders.trim()),
+                    "Has Goals": !!(r.goals && r.goals.trim())
+                })));
+            }
+            console.groupEnd();
 
             const ordersHtml = fulfilledRules
                 .filter(r => r.orders && r.orders.trim())
@@ -634,7 +681,11 @@
         }
 
         async function fetchLatestOasisScrubber() {
-            if (!CHART_ID || !SF_SESSION_ID || !SF_BASE_URL) return null;
+            if (!CHART_ID || !SF_SESSION_ID || !SF_BASE_URL) {
+                console.warn("⚠️ [OASIS Scrubber] Missing CHART_ID, SF_SESSION_ID, or SF_BASE_URL");
+                return null;
+            }
+            console.log(`🔍 [OASIS Scrubber] Querying latest record for Chart ID: ${CHART_ID}...`);
             try {
                 const scrubberQuery = `SELECT Id, CreatedDate,
                     Functional_Points_M1033_Projected__c, Functional_Points_M1033__c,
@@ -686,19 +737,31 @@
                 if (response.ok) {
                     const data = await response.json();
                     if (data.records && data.records.length > 0) {
-                        return data.records[0];
+                        const scrubberRec = data.records[0];
+                        console.log("✅ [OASIS Scrubber] Found Scrubber Record ID:", scrubberRec.Id, "CreatedDate:", scrubberRec.CreatedDate);
+                        console.log("   [OASIS Scrubber] Snapshot of Target Fields:", scrubberRec);
+                        return scrubberRec;
+                    } else {
+                        console.warn("⚠️ [OASIS Scrubber] No Scrubber records found in Salesforce for Chart:", CHART_ID);
                     }
                 } else {
-                    console.warn("Could not query Oasis_Scrubber__c:", await response.text());
+                    console.warn("❌ [OASIS Scrubber] Query failed:", await response.text());
                 }
             } catch (e) {
-                console.error("Error fetching Scrubber record:", e);
+                console.error("❌ [OASIS Scrubber] Error fetching Scrubber record:", e);
             }
             return null;
         }
 
         async function savePocRocData(pocData) {
-            if (!CHART_ID || !SF_SESSION_ID || !SF_BASE_URL) return;
+            if (!CHART_ID || !SF_SESSION_ID || !SF_BASE_URL) {
+                console.warn("⚠️ [POC/ROC Save] Cannot save: Missing CHART_ID, SF_SESSION_ID, or SF_BASE_URL");
+                return;
+            }
+
+            console.group("💾 [POC/ROC Save] Saving to Salesforce");
+            console.log("Target Chart ID:", CHART_ID);
+            console.log("POC Data to save:", pocData);
 
             try {
                 // Query existing POC_ROC__c record for this Chart (Limit 1, most recent)
@@ -718,6 +781,9 @@
                     const qData = await qRes.json();
                     if (qData.records && qData.records.length > 0) {
                         existingPocId = qData.records[0].Id;
+                        console.log("🔍 [POC/ROC Save] Found existing record to overwrite:", existingPocId);
+                    } else {
+                        console.log("🔍 [POC/ROC Save] No existing record found. Will insert new POC_ROC__c record.");
                     }
                 }
 
@@ -731,6 +797,7 @@
                 if (existingPocId) {
                     // Overwrite existing record
                     const patchEndpoint = `${SF_BASE_URL}/services/data/v57.0/sobjects/POC_ROC__c/${existingPocId}`;
+                    console.log(`📤 [POC/ROC Save] Sending PATCH to ${patchEndpoint}`);
                     const pRes = await fetch(patchEndpoint, {
                         method: "PATCH",
                         headers: {
@@ -740,14 +807,15 @@
                         body: JSON.stringify(payload)
                     });
                     if (!pRes.ok) {
-                        console.error("Failed to update POC_ROC__c:", await pRes.text());
+                        console.error("❌ [POC/ROC Save] Failed to update POC_ROC__c:", await pRes.text());
                     } else {
-                        console.log("✅ Successfully overwrote POC_ROC__c record:", existingPocId);
+                        console.log("%c✅ [POC/ROC Save] Successfully overwrote POC_ROC__c record: " + existingPocId, "color: #4caf50; font-weight: bold;");
                     }
                 } else {
                     // Create new POC_ROC__c record
                     payload.Chart__c = CHART_ID;
                     const postEndpoint = `${SF_BASE_URL}/services/data/v57.0/sobjects/POC_ROC__c`;
+                    console.log(`📤 [POC/ROC Save] Sending POST to ${postEndpoint}`);
                     const postRes = await fetch(postEndpoint, {
                         method: "POST",
                         headers: {
@@ -757,14 +825,16 @@
                         body: JSON.stringify(payload)
                     });
                     if (!postRes.ok) {
-                        console.error("Failed to create POC_ROC__c:", await postRes.text());
+                        console.error("❌ [POC/ROC Save] Failed to create POC_ROC__c:", await postRes.text());
                     } else {
                         const postData = await postRes.json();
-                        console.log("✅ Successfully created POC_ROC__c record:", postData.id);
+                        console.log("%c✅ [POC/ROC Save] Successfully created new POC_ROC__c record: " + postData.id, "color: #4caf50; font-weight: bold;");
                     }
                 }
             } catch (err) {
-                console.error("Error saving POC/ROC data:", err);
+                console.error("❌ [POC/ROC Save] Error saving POC/ROC data:", err);
+            } finally {
+                console.groupEnd();
             }
         }
 
@@ -1135,12 +1205,13 @@
 
         // 1. Send Data to Custom Apex REST API
         async function sendToSalesforce(rawJson, f2fSummary, ptOtJson, aiTimeSeconds, aiLogs, pocData) {
+            console.group("📤 [Apex REST] Sending Result to /services/apexrest/non-oasis/ai-result");
             const endpoint = `${SF_BASE_URL}/services/apexrest/non-oasis/ai-result`;
             const payload = {
                 chartId: CHART_ID,
                 rawJson: rawJson,
                 f2fSummary: f2fSummary,
-                ptOtJson: ptOtJson, // Added PT/OT to payload
+                ptOtJson: ptOtJson,
                 aiTimeSeconds: aiTimeSeconds,
                 aiLogs: aiLogs
             };
@@ -1150,12 +1221,20 @@
                 payload.pocBodySystems = pocData.bodySystems || "";
                 payload.pocIcdCodes = pocData.icdCodes || "";
             }
+            console.log("Apex Payload Keys:", Object.keys(payload));
             const response = await fetch(endpoint, {
                 method: "POST",
                 headers: { "Authorization": "Bearer " + SF_SESSION_ID, "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
             });
-            if (!response.ok) throw new Error(await response.text());
+            if (!response.ok) {
+                const errText = await response.text();
+                console.error("❌ [Apex REST] Error response:", errText);
+                console.groupEnd();
+                throw new Error(errText);
+            }
+            console.log("✅ [Apex REST] Request successfully processed by Salesforce!");
+            console.groupEnd();
         }
 
         // 2. Upload Files directly to ContentVersion (Standard Salesforce API)
