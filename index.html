@@ -1,16 +1,4 @@
 
-
-<?php
-
-// 1. Allow Salesforce and your specific Portal to load this page
-
-header("Content-Security-Policy: frame-ancestors 'self' https://*.force.com https://*.salesforce.com https://*.visualforce.com https://*.lightning.force.com https://codingdepartment.my.site.com https://codingdepartment--pcopy.sandbox.my.site.com https://*.site.com");
- 
-// 2. Ensure X-Frame-Options is NOT set to DENY or SAMEORIGIN
-
-header_remove("X-Frame-Options");
-
-?>
 <!DOCTYPE html>
 <html lang="en">
 
